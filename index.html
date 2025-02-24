@@ -58,31 +58,34 @@
         .date-today { color: #1e90ff; } /* Azul */
         .date-one-day-past { color: #ffff00; } /* Amarelo */
         .date-two-plus-days-past { color: #ff0000; } /* Vermelho */
-        #error, #success {
+        #mainError, #addError, #editError, #deleteError, 
+        #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess {
             font-size: 24px;
             margin: 10px 0;
         }
-        #error { color: #ff5555; }
-        #success { color: #55ff55; }
+        [id$="Error"] { color: #ff5555; }
+        [id$="Success"] { color: #55ff55; }
     </style>
 </head>
 <body>
     <div id="mainScreen" class="screen active">
         <h1>Gerenciador de Medicamentos</h1>
         <div class="nav-buttons">
-            <button onclick="showScreen('addScreen')">Cadastrar Item</button>
-            <button onclick="showScreen('editScreen')">Alterar Item Já Cadastrado</button>
-            <button onclick="showScreen('deleteScreen')">Excluir ou Desabilitar Item</button>
+            <button id="goToAdd">Cadastrar Item</button>
+            <button id="goToEdit">Alterar Item Já Cadastrado</button>
+            <button id="goToDelete">Excluir ou Desabilitar Item</button>
         </div>
         <ul id="medList"></ul>
+        <div id="mainError"></div>
+        <div id="mainSuccess"></div>
     </div>
 
     <div id="addScreen" class="screen">
         <h1>Cadastrar Item</h1>
         <input type="text" id="addNameInput" placeholder="Nome do item">
         <input type="number" id="addPeriodInput" placeholder="Periodicidade (horas)">
-        <button onclick="addMedication()">Salvar</button>
-        <button onclick="showScreen('mainScreen')">Voltar</button>
+        <button id="saveAdd">Salvar</button>
+        <button id="backFromAdd">Voltar</button>
         <div id="addError"></div>
         <div id="addSuccess"></div>
     </div>
@@ -90,13 +93,17 @@
     <div id="editScreen" class="screen">
         <h1>Alterar Item Já Cadastrado</h1>
         <ul id="editMedList"></ul>
-        <button onclick="showScreen('mainScreen')">Voltar</button>
+        <button id="backFromEdit">Voltar</button>
+        <div id="editError"></div>
+        <div id="editSuccess"></div>
     </div>
 
     <div id="deleteScreen" class="screen">
         <h1>Excluir ou Desabilitar Item</h1>
         <ul id="deleteMedList"></ul>
-        <button onclick="showScreen('mainScreen')">Voltar</button>
+        <button id="backFromDelete">Voltar</button>
+        <div id="deleteError"></div>
+        <div id="deleteSuccess"></div>
     </div>
 
     <script type="module">
@@ -181,7 +188,7 @@
             });
         });
 
-        window.addMedication = function() {
+        function addMedication() {
             const nameInput = document.getElementById('addNameInput');
             const periodInput = document.getElementById('addPeriodInput');
             const name = nameInput.value.trim();
@@ -207,7 +214,7 @@
             }).catch((error) => {
                 document.getElementById('addError').textContent = "Erro ao cadastrar: " + error.message;
             });
-        };
+        }
 
         function renderEditScreen() {
             onValue(medsRef, (snapshot) => {
@@ -219,23 +226,26 @@
                     li.innerHTML = `
                         <input type="text" id="editName-${key}" value="${med.name}">
                         <input type="number" id="editPeriod-${key}" value="${med.periodicity}">
-                        <button onclick="saveEdit('${key}')">Salvar</button>
+                        <button id="saveEdit-${key}">Salvar</button>
                     `;
                     editList.appendChild(li);
+                    document.getElementById(`saveEdit-${key}`).addEventListener('click', () => saveEdit(key));
                 });
             });
         }
 
-        window.saveEdit = function(key) {
+        function saveEdit(key) {
             const name = document.getElementById(`editName-${key}`).value.trim();
             const periodicity = parseInt(document.getElementById(`editPeriod-${key}`).value);
             if (!name || isNaN(periodicity) || periodicity <= 0) {
-                alert("Preencha nome e periodicidade válida!");
+                document.getElementById('editError').textContent = "Preencha nome e periodicidade válida!";
                 return;
             }
             update(ref(db, `medications/${key}`), { name, periodicity });
+            document.getElementById('editSuccess').textContent = "Item atualizado com sucesso!";
+            setTimeout(() => document.getElementById('editSuccess').textContent = '', 2000);
             showScreen('mainScreen');
-        };
+        }
 
         function renderDeleteScreen() {
             onValue(medsRef, (snapshot) => {
@@ -246,23 +256,44 @@
                     const li = document.createElement('li');
                     li.innerHTML = `
                         ${med.name} | Periodicidade: ${med.periodicity}h
-                        <button onclick="disableItem('${key}')">Desabilitar</button>
-                        <button onclick="deleteItem('${key}')">Excluir</button>
+                        <button id="disable-${key}">Desabilitar</button>
+                        <button id="delete-${key}">Excluir</button>
                     `;
                     deleteList.appendChild(li);
+                    document.getElementById(`disable-${key}`).addEventListener('click', () => disableItem(key));
+                    document.getElementById(`delete-${key}`).addEventListener('click', () => deleteItem(key));
                 });
             });
         }
 
-        window.disableItem = function(key) {
+        function disableItem(key) {
             update(ref(db, `medications/${key}`), { enabled: false });
+            document.getElementById('deleteSuccess').textContent = "Item desabilitado com sucesso!";
+            setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
             showScreen('mainScreen');
-        };
+        }
 
-        window.deleteItem = function(key) {
-            remove(ref(db, `medications/${key}`));
+        function disableItem(key) {
+            update(ref(db, `medications/${key}`), { enabled: false });
+            document.getElementById('deleteSuccess').textContent = "Item desabilitado com sucesso!";
+            setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
             showScreen('mainScreen');
-        };
+        }
+        function deleteItem(key) {
+            remove(ref(db, `medications/${key}`));
+            document.getElementById('deleteSuccess').textContent = "Item excluído com sucesso!";
+            setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
+            showScreen('mainScreen');
+        }
+
+        // Vincula eventos aos botões de navegação
+        document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
+        document.getElementById('goToEdit').addEventListener('click', () => showScreen('editScreen'));
+        document.getElementById('goToDelete').addEventListener('click', () => showScreen('deleteScreen'));
+        document.getElementById('saveAdd').addEventListener('click', addMedication);
+        document.getElementById('backFromAdd').addEventListener('click', () => showScreen('mainScreen'));
+        document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
+        document.getElementById('backFromDelete').addEventListener('click', () => showScreen('mainScreen'));
     </script>
 </body>
 </html>
