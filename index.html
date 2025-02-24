@@ -64,11 +64,11 @@
             font-size: 36px;
             font-weight: bold;
         }
-        .date-today { color: #1e90ff; } /* Azul */
-        .date-one-day-past { color: #ffff00; } /* Amarelo */
-        .date-two-plus-days-past { color: #ff0000; } /* Vermelho */
-        .on-time { color: #00ff00; } /* Verde para na hora */
-        .late { color: #ff5555; } /* Vermelho claro para atrasado */
+        .same-day { color: #ffff00; } /* Amarelo */
+        .next-day { color: #1e90ff; } /* Azul */
+        .overdue { color: #ff0000; } /* Vermelho */
+        .on-time { color: #00ff00; } /* Verde */
+        .late { color: #ff5555; } /* Vermelho claro */
         #mainError, #addError, #editError, #deleteError, #reportError,
         #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess, #reportSuccess {
             font-size: 24px;
@@ -172,7 +172,7 @@
             if (screenId === 'reportScreen') renderReportScreen('daily');
         }
 
-        // Função para formatar data/hora com cores
+        // Função para formatar data/hora com nova lógica de cores
         function formatDateTime(dateTime) {
             if (!dateTime) return '';
             const date = new Date(dateTime);
@@ -182,19 +182,20 @@
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             let className = '';
-            const today = new Date();
+            const now = new Date();
+            const today = new Date(now);
             today.setHours(0, 0, 0, 0);
             const due = new Date(dateTime);
             due.setHours(0, 0, 0, 0);
-            const diffMs = today.getTime() - due.getTime();
-            const oneDayMs = 24 * 60 * 60 * 1000;
-            if (diffMs === 0) className = 'date-today';
-            else if (diffMs === oneDayMs) className = 'date-one-day-past';
-            else if (diffMs >= 2 * oneDayMs) className = 'date-two-plus-days-past';
+            const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
+            const diffMs = now - date;
+            if (diffDays === 0) className = 'same-day'; // Mesmo dia
+            else if (diffDays === 1) className = 'next-day'; // Dia seguinte
+            else if (diffMs >= 30 * 60 * 1000) className = 'overdue'; // Atrasado ≥ 30min
             return `<span class="${className}">${hours}:${minutes}</span>`;
         }
 
-        // Função para calcular o próximo horário com correção de +3h
+        // Função para calcular o próximo horário
         function getNextTime(lastTaken, periodicity) {
             if (!lastTaken) {
                 const now = new Date();
@@ -370,10 +371,10 @@
                             }
                             if (shouldInclude) {
                                 const li = document.createElement('li');
-                                // Calcula o horário esperado baseado no índice no histórico
-                                const expected = index === 0 && !med.lastTaken ? new Date(taken) : new Date(med.history[index - 1] || med.lastTaken);
                                 const periodMs = med.periodicity * 60 * 60 * 1000;
-                                expected.setTime(expected.getTime() + periodMs);
+                                const correctionMs = 3 * 60 * 60 * 1000; // Mesma correção de +3h
+                                const expected = index === 0 ? new Date(taken) : new Date(med.history[index - 1]);
+                                expected.setTime(expected.getTime() + periodMs + correctionMs);
                                 const diff = Math.abs(takenDate - expected);
                                 const onTime = diff <= 30 * 60 * 1000; // ±30min
                                 li.innerHTML = `
