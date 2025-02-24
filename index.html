@@ -194,7 +194,7 @@
             return `<span class="${className}">${hours}:${minutes}</span>`;
         }
 
-        // Função para calcular o próximo horário
+        // Função para calcular o próximo horário com correção de +3h
         function getNextTime(lastTaken, periodicity) {
             if (!lastTaken) {
                 const now = new Date();
@@ -202,7 +202,8 @@
             }
             const last = new Date(lastTaken);
             const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
-            const nextTimeMs = last.getTime() + periodMs;
+            const correctionMs = 3 * 60 * 60 * 1000; // Correção de +3 horas
+            const nextTimeMs = last.getTime() + periodMs + correctionMs;
             const next = new Date(nextTimeMs);
             return next.toISOString();
         }
@@ -355,7 +356,7 @@
 
                 Object.entries(meds).forEach(([key, med]) => {
                     if (med.history && med.history.length > 0) {
-                        med.history.forEach(taken => {
+                        med.history.forEach((taken, index) => {
                             const takenDate = new Date(taken);
                             let shouldInclude = false;
                             if (type === 'daily') {
@@ -369,12 +370,15 @@
                             }
                             if (shouldInclude) {
                                 const li = document.createElement('li');
-                                const expected = new Date(med.lastTaken || taken);
-                                expected.setHours(expected.getHours() - med.periodicity);
+                                // Calcula o horário esperado baseado no índice no histórico
+                                const expected = index === 0 && !med.lastTaken ? new Date(taken) : new Date(med.history[index - 1] || med.lastTaken);
+                                const periodMs = med.periodicity * 60 * 60 * 1000;
+                                expected.setTime(expected.getTime() + periodMs);
                                 const diff = Math.abs(takenDate - expected);
                                 const onTime = diff <= 30 * 60 * 1000; // ±30min
                                 li.innerHTML = `
                                     ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenDate.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                    | Esperado: ${expected.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                 `;
                                 reportList.appendChild(li);
                             }
