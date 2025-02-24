@@ -106,4 +106,43 @@
                         else if (diff < -30) isOverdue = true;
                     }
                 });
-                li.textContent = `${me
+                li.textContent = `${med.name} | ${med.dosage} | Horários: ${med.times}`;
+                if (isOverdue) li.classList.add('overdue');
+                else if (isDueSoon) li.classList.add('due-soon');
+                medList.appendChild(li);
+            });
+        });
+
+        window.addMedication = function() {
+            const medInput = document.getElementById('medInput');
+            const dosageInput = document.getElementById('dosageInput');
+            const timesInput = document.getElementById('timesInput');
+            const medText = medInput.value.trim();
+            const dosageText = dosageInput.value.trim();
+            const timesText = timesInput.value.trim();
+
+            if (!medText || !dosageText || !timesText) {
+                document.getElementById('error').textContent = "Preencha todos os campos!";
+                return;
+            }
+
+            push(medsRef, {
+                name: medText,
+                dosage: dosageText,
+                times: timesText,
+                frequency: "daily", // Padrão inicial
+                startDate: new Date().toISOString().split('T')[0]
+            }).then(() => {
+                medInput.value = '';
+                dosageInput.value = '';
+                timesInput.value = '';
+                document.getElementById('error').textContent = '';
+                document.getElementById('success').textContent = "Medicamento adicionado com sucesso!";
+                setTimeout(() => document.getElementById('success').textContent = '', 2000);
+            }).catch((error) => {
+                document.getElementById('error').textContent = "Erro ao adicionar: " + error.message;
+            });
+        };
+    </script>
+</body>
+</html>
