@@ -64,8 +64,8 @@
             font-size: 36px;
             font-weight: bold;
         }
-        .same-day { color: #ffff00; } /* Amarelo */
-        .next-day { color: #1e90ff; } /* Azul */
+        .next-day { color: #ffff00; } /* Amarelo */
+        .two-days-after { color: #1e90ff; } /* Azul */
         .overdue { color: #ff0000; } /* Vermelho */
         .on-time { color: #00ff00; } /* Verde */
         .late { color: #ff5555; } /* Vermelho claro */
@@ -189,9 +189,9 @@
             due.setHours(0, 0, 0, 0);
             const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
             const diffMs = now - date;
-            if (diffDays === 0) className = 'same-day'; // Mesmo dia
-            else if (diffDays === 1) className = 'next-day'; // Dia seguinte
-            else if (diffMs >= 30 * 60 * 1000) className = 'overdue'; // Atrasado ≥ 30min
+            if (diffDays === 1) className = 'next-day'; // Dia seguinte (amarelo)
+            else if (diffDays === 2) className = 'two-days-after'; // Dois dias depois (azul)
+            else if (diffMs >= 30 * 60 * 1000) className = 'overdue'; // Atrasado ≥ 30min (vermelho)
             return `<span class="${className}">${hours}:${minutes}</span>`;
         }
 
@@ -372,9 +372,8 @@
                             if (shouldInclude) {
                                 const li = document.createElement('li');
                                 const periodMs = med.periodicity * 60 * 60 * 1000;
-                                const correctionMs = 3 * 60 * 60 * 1000; // Mesma correção de +3h
                                 const expected = index === 0 ? new Date(taken) : new Date(med.history[index - 1]);
-                                expected.setTime(expected.getTime() + periodMs + correctionMs);
+                                expected.setTime(expected.getTime() + periodMs); // Sem correção extra de +3h
                                 const diff = Math.abs(takenDate - expected);
                                 const onTime = diff <= 30 * 60 * 1000; // ±30min
                                 li.innerHTML = `
