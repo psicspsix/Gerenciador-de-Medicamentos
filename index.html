@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Medicamentos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            text-align: center;
+        }
+        h1 {
+            color: #ffffff;
+            font-size: 36px;
+        }
+        input, button {
+            font-size: 24px;
+            padding: 15px;
+            margin: 10px;
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+        }
+        #medInput {
+            width: 400px;
+        }
+        button:hover {
+            background: #555;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            font-size: 28px;
+            margin: 15px 0;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+        }
+        .due-soon {
+            background: #006400; /* Verde escuro para "próximo" */
+        }
+        .overdue {
+            background: #8b0000; /* Vermelho escuro para "atrasado" */
+        }
+        #error, #success {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        #error { color: #ff5555; }
+        #success { color: #55ff55; }
+    </style>
+</head>
+<body>
+    <h1>Gerenciador de Medicamentos</h1>
+    <input type="text" id="medInput" placeholder="Nome do medicamento">
+    <input type="text" id="dosageInput" placeholder="Dosagem (ex.: 1 comprimido)">
+    <input type="text" id="timesInput" placeholder="Horários (ex.: 08:00, 14:00)">
+    <button onclick="addMedication()">Adicionar</button>
+    <div id="error"></div>
+    <div id="success"></div>
+    <ul id="medList"></ul>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8pHaMGwaR3-_36A1mYJ0UzAwOdBk-9zw",
+            authDomain: "gerenciador-medicamentos.firebaseapp.com",
+            databaseURL: "https://gerenciador-medicamentos-default-rtdb.firebaseio.com",
+            projectId: "gerenciador-medicamentos",
+            storageBucket: "gerenciador-medicamentos.firebasestorage.app",
+            messagingSenderId: "182430581876",
+            appId: "1:182430581876:web:e5e6462c7c70dd4326bd21",
+            measurementId: "G-FXWHXJFSN4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const medsRef = ref(db, 'medications');
+
+        onValue(medsRef, (snapshot) => {
+            const meds = snapshot.val() || {};
+            const medList = document.getElementById('medList');
+            medList.innerHTML = meds ? '' : '<li>Sem medicamentos ainda.</li>';
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const currentTime = now.getHours() * 60 + now.getMinutes();
+
+            Object.entries(meds).forEach(([key, med]) => {
+                const li = document.createElement('li');
+                const times = med.times.split(',').map(t => t.trim());
+                let isDueSoon = false, isOverdue = false;
+                times.forEach(time => {
+                    const [hours, minutes] = time.split(':').map(Number);
+                    const medTime = hours * 60 + minutes;
+                    const diff = medTime - currentTime;
+                    if (med.startDate <= todayStr) {
+                        if (diff >= -30 && diff <= 30) isDueSoon = true;
+                        else if (diff < -30) isOverdue = true;
+                    }
+                });
+                li.textContent = `${me
