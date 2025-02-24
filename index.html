@@ -196,15 +196,11 @@
 
         // Função para calcular o próximo horário
         function getNextTime(lastTaken, periodicity) {
-            const now = new Date();
-            if (!lastTaken) return now.toISOString();
+            if (!lastTaken) return new Date().toISOString();
             const last = new Date(lastTaken);
-            const periodMs = periodicity * 60 * 60 * 1000;
-            let next = last.getTime();
-            while (next <= now.getTime()) {
-                next += periodMs;
-            }
-            return new Date(next).toISOString();
+            const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
+            const next = new Date(last.getTime() + periodMs);
+            return next.toISOString();
         }
 
         // Renderiza a tela inicial
@@ -218,17 +214,27 @@
                 const nextTime = getNextTime(med.lastTaken, med.periodicity);
                 li.innerHTML = `
                     ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
-                    | Tomado às: <input type="text" id="taken-${key}" value="${med.lastTaken ? med.lastTaken.split('T')[1].slice(0, 5) : ''}" placeholder="hh:mm" maxlength="5">
+                    | Tomado às: <input type="text" id="taken-${key}" value="" placeholder="hhmm" maxlength="4">
                 `;
                 li.querySelector(`#taken-${key}`).addEventListener('change', (e) => {
                     const value = e.target.value;
-                    if (/^\d{2}:\d{2}$/.test(value)) {
-                        const today = new Date().toISOString().split('T')[0];
-                        const newLastTaken = `${today}T${value}:00Z`;
-                        update(ref(db, `medications/${key}`), { 
-                            lastTaken: newLastTaken,
-                            history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
-                        });
+                    if (/^\d{4}$/.test(value)) {
+                        const hours = value.slice(0, 2);
+                        const minutes = value.slice(2, 4);
+                        if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                            const today = new Date().toISOString().split('T')[0];
+                            const newLastTaken = `${today}T${hours}:${minutes}:00Z`;
+                            update(ref(db, `medications/${key}`), { 
+                                lastTaken: newLastTaken,
+                                history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
+                            }).then(() => {
+                                e.target.value = ''; // Limpa o campo
+                            });
+                        } else {
+                            document.getElementById('mainError').textContent = "Horário inválido!";
+                        }
+                    } else {
+                        document.getElementById('mainError').textContent = "Digite hhmm (ex.: 1556)!";
                     }
                 });
                 medList.appendChild(li);
@@ -252,7 +258,7 @@
                 periodicity,
                 lastTaken: null,
                 enabled: true,
-                history: [] // Inicializa histórico vazio
+                history: []
             }).then(() => {
                 nameInput.value = '';
                 periodInput.value = '';
