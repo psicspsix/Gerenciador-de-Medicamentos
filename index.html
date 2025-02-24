@@ -12,10 +12,19 @@
             color: #e0e0e0;
             text-align: center;
         }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
         h1 {
             color: #ffffff;
             font-size: 36px;
             margin: 0;
+        }
+        #currentTime {
+            font-size: 28px;
+            color: #e0e0e0;
         }
         .nav-buttons {
             margin: 20px 0;
@@ -58,8 +67,10 @@
         .date-today { color: #1e90ff; } /* Azul */
         .date-one-day-past { color: #ffff00; } /* Amarelo */
         .date-two-plus-days-past { color: #ff0000; } /* Vermelho */
-        #mainError, #addError, #editError, #deleteError, 
-        #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess {
+        .on-time { color: #00ff00; } /* Verde para na hora */
+        .late { color: #ff5555; } /* Vermelho claro para atrasado */
+        #mainError, #addError, #editError, #deleteError, #reportError,
+        #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess, #reportSuccess {
             font-size: 24px;
             margin: 10px 0;
         }
@@ -69,11 +80,15 @@
 </head>
 <body>
     <div id="mainScreen" class="screen active">
-        <h1>Gerenciador de Medicamentos</h1>
+        <div class="header">
+            <h1>Gerenciador de Medicamentos</h1>
+            <span id="currentTime"></span>
+        </div>
         <div class="nav-buttons">
             <button id="goToAdd">Cadastrar Item</button>
             <button id="goToEdit">Alterar Item Já Cadastrado</button>
             <button id="goToDelete">Excluir ou Desabilitar Item</button>
+            <button id="goToReport">Relatórios</button>
         </div>
         <ul id="medList"></ul>
         <div id="mainError"></div>
@@ -106,6 +121,19 @@
         <div id="deleteSuccess"></div>
     </div>
 
+    <div id="reportScreen" class="screen">
+        <h1>Relatórios</h1>
+        <div class="nav-buttons">
+            <button id="dailyReport">Diário</button>
+            <button id="weeklyReport">Semanal</button>
+            <button id="monthlyReport">Mensal</button>
+        </div>
+        <ul id="reportList"></ul>
+        <button id="backFromReport">Voltar</button>
+        <div id="reportError"></div>
+        <div id="reportSuccess"></div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue, push, update, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -125,12 +153,23 @@
         const db = getDatabase(app);
         const medsRef = ref(db, 'medications');
 
+        // Atualiza o horário atual
+        function updateCurrentTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateCurrentTime, 60000); // Atualiza a cada minuto
+        updateCurrentTime(); // Chama imediatamente
+
         // Função para alternar telas
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
             if (screenId === 'editScreen') renderEditScreen();
             if (screenId === 'deleteScreen') renderDeleteScreen();
+            if (screenId === 'reportScreen') renderReportScreen('daily');
         }
 
         // Função para formatar data/hora com cores
@@ -185,7 +224,11 @@
                     const value = e.target.value;
                     if (/^\d{2}:\d{2}$/.test(value)) {
                         const today = new Date().toISOString().split('T')[0];
-                        update(ref(db, `medications/${key}`), { lastTaken: `${today}T${value}:00Z` });
+                        const newLastTaken = `${today}T${value}:00Z`;
+                        update(ref(db, `medications/${key}`), { 
+                            lastTaken: newLastTaken,
+                            history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
+                        });
                     }
                 });
                 medList.appendChild(li);
@@ -208,7 +251,8 @@
                 name,
                 periodicity,
                 lastTaken: null,
-                enabled: true
+                enabled: true,
+                history: [] // Inicializa histórico vazio
             }).then(() => {
                 nameInput.value = '';
                 periodInput.value = '';
@@ -287,15 +331,64 @@
             showScreen('mainScreen');
         }
 
+        // Renderiza a tela de relatórios
+        function renderReportScreen(type) {
+            onValue(medsRef, (snapshot) => {
+                const meds = snapshot.val() || {};
+                const reportList = document.getElementById('reportList');
+                reportList.innerHTML = '';
+                const now = new Date();
+                const today = new Date(now);
+                today.setHours(0, 0, 0, 0);
+
+                Object.entries(meds).forEach(([key, med]) => {
+                    if (med.history && med.history.length > 0) {
+                        med.history.forEach(taken => {
+                            const takenDate = new Date(taken);
+                            let shouldInclude = false;
+                            if (type === 'daily') {
+                                shouldInclude = takenDate.toDateString() === now.toDateString();
+                            } else if (type === 'weekly') {
+                                const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                                shouldInclude = takenDate >= weekAgo;
+                            } else if (type === 'monthly') {
+                                const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                                shouldInclude = takenDate >= monthAgo;
+                            }
+                            if (shouldInclude) {
+                                const li = document.createElement('li');
+                                const expected = new Date(med.lastTaken || taken);
+                                expected.setHours(expected.getHours() - med.periodicity);
+                                const diff = Math.abs(takenDate - expected);
+                                const onTime = diff <= 30 * 60 * 1000; // ±30min
+                                li.innerHTML = `
+                                    ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenDate.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                `;
+                                reportList.appendChild(li);
+                            }
+                        });
+                    }
+                });
+                if (!reportList.children.length) {
+                    reportList.innerHTML = '<li>Nenhum registro encontrado!</li>';
+                }
+            });
+        }
+
         // Vincula eventos aos botões de navegação após o DOM carregar
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
             document.getElementById('goToEdit').addEventListener('click', () => showScreen('editScreen'));
             document.getElementById('goToDelete').addEventListener('click', () => showScreen('deleteScreen'));
+            document.getElementById('goToReport').addEventListener('click', () => showScreen('reportScreen'));
             document.getElementById('saveAdd').addEventListener('click', addMedication);
             document.getElementById('backFromAdd').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromDelete').addEventListener('click', () => showScreen('mainScreen'));
+            document.getElementById('backFromReport').addEventListener('click', () => showScreen('mainScreen'));
+            document.getElementById('dailyReport').addEventListener('click', () => renderReportScreen('daily'));
+            document.getElementById('weeklyReport').addEventListener('click', () => renderReportScreen('weekly'));
+            document.getElementById('monthlyReport').addEventListener('click', () => renderReportScreen('monthly'));
         });
     </script>
 </body>
