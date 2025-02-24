@@ -125,6 +125,7 @@
         const db = getDatabase(app);
         const medsRef = ref(db, 'medications');
 
+        // Função para alternar telas
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -132,6 +133,7 @@
             if (screenId === 'deleteScreen') renderDeleteScreen();
         }
 
+        // Função para formatar data/hora com cores
         function formatDateTime(dateTime) {
             if (!dateTime) return '';
             const date = new Date(dateTime);
@@ -153,6 +155,7 @@
             return `<span class="${className}">${hours}:${minutes}</span>`;
         }
 
+        // Função para calcular o próximo horário
         function getNextTime(lastTaken, periodicity) {
             const now = new Date();
             if (!lastTaken) return now.toISOString();
@@ -165,6 +168,7 @@
             return new Date(next).toISOString();
         }
 
+        // Renderiza a tela inicial
         onValue(medsRef, (snapshot) => {
             const meds = snapshot.val() || {};
             const medList = document.getElementById('medList');
@@ -188,6 +192,7 @@
             });
         });
 
+        // Função para cadastrar medicamento
         function addMedication() {
             const nameInput = document.getElementById('addNameInput');
             const periodInput = document.getElementById('addPeriodInput');
@@ -216,6 +221,7 @@
             });
         }
 
+        // Renderiza a tela de edição
         function renderEditScreen() {
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
@@ -247,6 +253,7 @@
             showScreen('mainScreen');
         }
 
+        // Renderiza a tela de exclusão
         function renderDeleteScreen() {
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
@@ -273,12 +280,6 @@
             showScreen('mainScreen');
         }
 
-        function disableItem(key) {
-            update(ref(db, `medications/${key}`), { enabled: false });
-            document.getElementById('deleteSuccess').textContent = "Item desabilitado com sucesso!";
-            setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
-            showScreen('mainScreen');
-        }
         function deleteItem(key) {
             remove(ref(db, `medications/${key}`));
             document.getElementById('deleteSuccess').textContent = "Item excluído com sucesso!";
@@ -286,14 +287,16 @@
             showScreen('mainScreen');
         }
 
-        // Vincula eventos aos botões de navegação
-        document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
-        document.getElementById('goToEdit').addEventListener('click', () => showScreen('editScreen'));
-        document.getElementById('goToDelete').addEventListener('click', () => showScreen('deleteScreen'));
-        document.getElementById('saveAdd').addEventListener('click', addMedication);
-        document.getElementById('backFromAdd').addEventListener('click', () => showScreen('mainScreen'));
-        document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
-        document.getElementById('backFromDelete').addEventListener('click', () => showScreen('mainScreen'));
+        // Vincula eventos aos botões de navegação após o DOM carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
+            document.getElementById('goToEdit').addEventListener('click', () => showScreen('editScreen'));
+            document.getElementById('goToDelete').addEventListener('click', () => showScreen('deleteScreen'));
+            document.getElementById('saveAdd').addEventListener('click', addMedication);
+            document.getElementById('backFromAdd').addEventListener('click', () => showScreen('mainScreen'));
+            document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
+            document.getElementById('backFromDelete').addEventListener('click', () => showScreen('mainScreen'));
+        });
     </script>
 </body>
 </html>
