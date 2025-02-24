@@ -15,8 +15,12 @@
         h1 {
             color: #ffffff;
             font-size: 36px;
+            margin: 0;
         }
-        input, button {
+        .nav-buttons {
+            margin: 20px 0;
+        }
+        button, input {
             font-size: 24px;
             padding: 15px;
             margin: 10px;
@@ -24,11 +28,14 @@
             color: #e0e0e0;
             border: 1px solid #555;
         }
-        #medInput {
-            width: 400px;
-        }
         button:hover {
             background: #555;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
         }
         ul {
             list-style-type: none;
@@ -40,14 +47,17 @@
             background: #2a2a2a;
             padding: 20px;
             border-radius: 10px;
-            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .due-soon {
-            background: #006400; /* Verde escuro para "próximo" */
+        .next-time {
+            font-size: 36px;
+            font-weight: bold;
         }
-        .overdue {
-            background: #8b0000; /* Vermelho escuro para "atrasado" */
-        }
+        .date-today { color: #1e90ff; } /* Azul */
+        .date-one-day-past { color: #ffff00; } /* Amarelo */
+        .date-two-plus-days-past { color: #ff0000; } /* Vermelho */
         #error, #success {
             font-size: 24px;
             margin: 10px 0;
@@ -57,18 +67,41 @@
     </style>
 </head>
 <body>
-    <h1>Gerenciador de Medicamentos</h1>
-    <input type="text" id="medInput" placeholder="Nome do medicamento">
-    <input type="text" id="dosageInput" placeholder="Dosagem (ex.: 1 comprimido)">
-    <input type="text" id="timesInput" placeholder="Horários (ex.: 08:00, 14:00)">
-    <button onclick="addMedication()">Adicionar</button>
-    <div id="error"></div>
-    <div id="success"></div>
-    <ul id="medList"></ul>
+    <div id="mainScreen" class="screen active">
+        <h1>Gerenciador de Medicamentos</h1>
+        <div class="nav-buttons">
+            <button onclick="showScreen('addScreen')">Cadastrar Item</button>
+            <button onclick="showScreen('editScreen')">Alterar Item Já Cadastrado</button>
+            <button onclick="showScreen('deleteScreen')">Excluir ou Desabilitar Item</button>
+        </div>
+        <ul id="medList"></ul>
+    </div>
+
+    <div id="addScreen" class="screen">
+        <h1>Cadastrar Item</h1>
+        <input type="text" id="addNameInput" placeholder="Nome do item">
+        <input type="number" id="addPeriodInput" placeholder="Periodicidade (horas)">
+        <button onclick="addMedication()">Salvar</button>
+        <button onclick="showScreen('mainScreen')">Voltar</button>
+        <div id="addError"></div>
+        <div id="addSuccess"></div>
+    </div>
+
+    <div id="editScreen" class="screen">
+        <h1>Alterar Item Já Cadastrado</h1>
+        <ul id="editMedList"></ul>
+        <button onclick="showScreen('mainScreen')">Voltar</button>
+    </div>
+
+    <div id="deleteScreen" class="screen">
+        <h1>Excluir ou Desabilitar Item</h1>
+        <ul id="deleteMedList"></ul>
+        <button onclick="showScreen('mainScreen')">Voltar</button>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, onValue, push, update, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA8pHaMGwaR3-_36A1mYJ0UzAwOdBk-9zw",
@@ -85,63 +118,150 @@
         const db = getDatabase(app);
         const medsRef = ref(db, 'medications');
 
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if (screenId === 'editScreen') renderEditScreen();
+            if (screenId === 'deleteScreen') renderDeleteScreen();
+        }
+
+        function formatDateTime(dateTime) {
+            if (!dateTime) return '';
+            const date = new Date(dateTime);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            let className = '';
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const due = new Date(dateTime);
+            due.setHours(0, 0, 0, 0);
+            const diffMs = today.getTime() - due.getTime();
+            const oneDayMs = 24 * 60 * 60 * 1000;
+            if (diffMs === 0) className = 'date-today';
+            else if (diffMs === oneDayMs) className = 'date-one-day-past';
+            else if (diffMs >= 2 * oneDayMs) className = 'date-two-plus-days-past';
+            return `<span class="${className}">${hours}:${minutes}</span>`;
+        }
+
+        function getNextTime(lastTaken, periodicity) {
+            const now = new Date();
+            if (!lastTaken) return now.toISOString();
+            const last = new Date(lastTaken);
+            const periodMs = periodicity * 60 * 60 * 1000;
+            let next = last.getTime();
+            while (next <= now.getTime()) {
+                next += periodMs;
+            }
+            return new Date(next).toISOString();
+        }
+
         onValue(medsRef, (snapshot) => {
             const meds = snapshot.val() || {};
             const medList = document.getElementById('medList');
-            medList.innerHTML = meds ? '' : '<li>Sem medicamentos ainda.</li>';
-            const now = new Date();
-            const todayStr = now.toISOString().split('T')[0];
-            const currentTime = now.getHours() * 60 + now.getMinutes();
+            medList.innerHTML = meds ? '' : '<li>Nenhum medicamento, alimento ou líquido cadastrado!</li>';
 
-            Object.entries(meds).forEach(([key, med]) => {
+            Object.entries(meds).filter(([_, med]) => med.enabled !== false).forEach(([key, med]) => {
                 const li = document.createElement('li');
-                const times = med.times.split(',').map(t => t.trim());
-                let isDueSoon = false, isOverdue = false;
-                times.forEach(time => {
-                    const [hours, minutes] = time.split(':').map(Number);
-                    const medTime = hours * 60 + minutes;
-                    const diff = medTime - currentTime;
-                    if (med.startDate <= todayStr) {
-                        if (diff >= -30 && diff <= 30) isDueSoon = true;
-                        else if (diff < -30) isOverdue = true;
+                const nextTime = getNextTime(med.lastTaken, med.periodicity);
+                li.innerHTML = `
+                    ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
+                    | Tomado às: <input type="text" id="taken-${key}" value="${med.lastTaken ? med.lastTaken.split('T')[1].slice(0, 5) : ''}" placeholder="hh:mm" maxlength="5">
+                `;
+                li.querySelector(`#taken-${key}`).addEventListener('change', (e) => {
+                    const value = e.target.value;
+                    if (/^\d{2}:\d{2}$/.test(value)) {
+                        const today = new Date().toISOString().split('T')[0];
+                        update(ref(db, `medications/${key}`), { lastTaken: `${today}T${value}:00Z` });
                     }
                 });
-                li.textContent = `${med.name} | ${med.dosage} | Horários: ${med.times}`;
-                if (isOverdue) li.classList.add('overdue');
-                else if (isDueSoon) li.classList.add('due-soon');
                 medList.appendChild(li);
             });
         });
 
         window.addMedication = function() {
-            const medInput = document.getElementById('medInput');
-            const dosageInput = document.getElementById('dosageInput');
-            const timesInput = document.getElementById('timesInput');
-            const medText = medInput.value.trim();
-            const dosageText = dosageInput.value.trim();
-            const timesText = timesInput.value.trim();
+            const nameInput = document.getElementById('addNameInput');
+            const periodInput = document.getElementById('addPeriodInput');
+            const name = nameInput.value.trim();
+            const periodicity = parseInt(periodInput.value);
 
-            if (!medText || !dosageText || !timesText) {
-                document.getElementById('error').textContent = "Preencha todos os campos!";
+            if (!name || isNaN(periodicity) || periodicity <= 0) {
+                document.getElementById('addError').textContent = "Preencha nome e periodicidade válida!";
                 return;
             }
 
             push(medsRef, {
-                name: medText,
-                dosage: dosageText,
-                times: timesText,
-                frequency: "daily", // Padrão inicial
-                startDate: new Date().toISOString().split('T')[0]
+                name,
+                periodicity,
+                lastTaken: null,
+                enabled: true
             }).then(() => {
-                medInput.value = '';
-                dosageInput.value = '';
-                timesInput.value = '';
-                document.getElementById('error').textContent = '';
-                document.getElementById('success').textContent = "Medicamento adicionado com sucesso!";
-                setTimeout(() => document.getElementById('success').textContent = '', 2000);
+                nameInput.value = '';
+                periodInput.value = '';
+                document.getElementById('addError').textContent = '';
+                document.getElementById('addSuccess').textContent = "Item cadastrado com sucesso!";
+                setTimeout(() => document.getElementById('addSuccess').textContent = '', 2000);
+                showScreen('mainScreen');
             }).catch((error) => {
-                document.getElementById('error').textContent = "Erro ao adicionar: " + error.message;
+                document.getElementById('addError').textContent = "Erro ao cadastrar: " + error.message;
             });
+        };
+
+        function renderEditScreen() {
+            onValue(medsRef, (snapshot) => {
+                const meds = snapshot.val() || {};
+                const editList = document.getElementById('editMedList');
+                editList.innerHTML = '';
+                Object.entries(meds).forEach(([key, med]) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <input type="text" id="editName-${key}" value="${med.name}">
+                        <input type="number" id="editPeriod-${key}" value="${med.periodicity}">
+                        <button onclick="saveEdit('${key}')">Salvar</button>
+                    `;
+                    editList.appendChild(li);
+                });
+            });
+        }
+
+        window.saveEdit = function(key) {
+            const name = document.getElementById(`editName-${key}`).value.trim();
+            const periodicity = parseInt(document.getElementById(`editPeriod-${key}`).value);
+            if (!name || isNaN(periodicity) || periodicity <= 0) {
+                alert("Preencha nome e periodicidade válida!");
+                return;
+            }
+            update(ref(db, `medications/${key}`), { name, periodicity });
+            showScreen('mainScreen');
+        };
+
+        function renderDeleteScreen() {
+            onValue(medsRef, (snapshot) => {
+                const meds = snapshot.val() || {};
+                const deleteList = document.getElementById('deleteMedList');
+                deleteList.innerHTML = '';
+                Object.entries(meds).forEach(([key, med]) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        ${med.name} | Periodicidade: ${med.periodicity}h
+                        <button onclick="disableItem('${key}')">Desabilitar</button>
+                        <button onclick="deleteItem('${key}')">Excluir</button>
+                    `;
+                    deleteList.appendChild(li);
+                });
+            });
+        }
+
+        window.disableItem = function(key) {
+            update(ref(db, `medications/${key}`), { enabled: false });
+            showScreen('mainScreen');
+        };
+
+        window.deleteItem = function(key) {
+            remove(ref(db, `medications/${key}`));
+            showScreen('mainScreen');
         };
     </script>
 </body>
