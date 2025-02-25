@@ -72,7 +72,7 @@
             align-items: flex-start;
         }
         #editMedList li, #deleteMedList li, #reportList li {
-            font-size: 28px; /* Corrige tamanho da fonte */
+            font-size: 28px;
             margin: 15px 0;
             background: #2a2a2a;
             padding: 20px;
@@ -121,6 +121,10 @@
             text-align: left;
             word-wrap: break-word;
             min-height: 60px; /* Aproximadamente 3 linhas */
+            background: #333;
+            border: 1px solid #555;
+            padding: 10px;
+            resize: none; /* Impede redimensionamento */
         }
     </style>
 </head>
@@ -401,26 +405,39 @@
                                 ${user.note ? '<span class="has-note">(Contém Nota)</span>' : ''}
                             </div>
                         </div>
-                        <div id="note-${key}" class="user-note">${user.note || ''}</div>
+                        <textarea id="note-${key}" class="user-note" placeholder="Digite uma nota aqui">${user.note || ''}</textarea>
                     `;
                     userList.appendChild(li);
 
                     const userNameSpan = li.querySelector('.user-name');
                     const hasNoteSpan = li.querySelector('.has-note');
-                    const noteDiv = document.getElementById(`note-${key}`);
+                    const noteTextarea = document.getElementById(`note-${key}`);
 
                     function toggleNote() {
-                        noteDiv.style.display = noteDiv.style.display === 'block' ? 'none' : 'block';
+                        noteTextarea.style.display = noteTextarea.style.display === 'block' ? 'none' : 'block';
                         set(lastUserRef, { id: key }).then(() => {
                             const firstName = user.name.split(' ')[0];
                             document.getElementById('goToUser').textContent = firstName;
                             currentUserId = key;
                             renderMainScreen();
                         });
+                        noteTextarea.focus();
                     }
 
                     userNameSpan.addEventListener('click', toggleNote);
                     if (hasNoteSpan) hasNoteSpan.addEventListener('click', toggleNote);
+
+                    // Salva a nota ao perder o foco ou pressionar Enter
+                    noteTextarea.addEventListener('blur', () => {
+                        update(ref(db, `users/${key}`), { note: noteTextarea.value });
+                    });
+                    noteTextarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            update(ref(db, `users/${key}`), { note: noteTextarea.value });
+                            noteTextarea.blur();
+                        }
+                    });
 
                     document.getElementById(`editUser-${key}`).addEventListener('click', () => {
                         const newName = prompt("Digite o novo nome:", user.name);
