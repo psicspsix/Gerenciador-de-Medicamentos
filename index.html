@@ -104,9 +104,6 @@
             font-size: 36px;
             font-weight: bold;
         }
-        .next-time span {
-            font-size: 18px; /* Reduzido para metade quando "Aguardando informações!" */
-        }
         .same-day { color: #ffff00; } /* Amarelo */
         .future-day { color: #1e90ff; } /* Azul */
         .on-time { color: #00ff00; } /* Verde */
@@ -268,7 +265,7 @@
 
         // Função para formatar data/hora com lógica de cores
         function formatDateTime(dateTime) {
-            if (!dateTime) return '<span>Aguardando informações!</span>'; // Mensagem quando não há dados
+            if (!dateTime) return '<span>Aguardando!</span>'; // Mensagem reduzida
             const date = new Date(dateTime);
             const dateLocal = new Date(date.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
             const day = String(dateLocal.getDate()).padStart(2, '0');
