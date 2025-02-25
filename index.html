@@ -75,15 +75,23 @@
         }
         [id$="Error"] { color: #ff5555; }
         [id$="Success"] { color: #55ff55; }
+        .user-name {
+            cursor: pointer;
+        }
+        .has-note {
+            cursor: pointer;
+            font-style: italic;
+            color: #aaa;
+            margin-left: 10px;
+        }
         .user-note {
             display: none;
             font-size: 20px;
             margin-top: 10px;
             color: #e0e0e0;
-        }
-        .has-note {
-            font-style: italic;
-            color: #aaa;
+            width: 100%;
+            text-align: left;
+            word-wrap: break-word;
         }
     </style>
 </head>
@@ -174,7 +182,11 @@
         const usersRef = ref(db, 'users');
         const lastUserRef = ref(db, 'lastUser');
         let currentUserId = null;
-        let medsRef = ref(db, 'medications'); // Temporário, será ajustado por usuário
+
+        // Função para obter medsRef com base no usuário atual
+        function getMedsRef() {
+            return currentUserId ? ref(db, `users/${currentUserId}/medications`) : ref(db, 'medications');
+        }
 
         // Atualiza o horário atual
         function updateCurrentTime() {
@@ -243,50 +255,54 @@
                         document.getElementById('goToUser').textContent = firstName;
                     }
                 }, { onlyOnce: true });
+                renderMainScreen(); // Atualiza a tela inicial com os medicamentos do usuário
             }
         });
 
-        // Renderiza a tela inicial
-        onValue(medsRef, (snapshot) => {
-            const meds = snapshot.val() || {};
-            const medList = document.getElementById('medList');
-            medList.innerHTML = meds ? '' : '<li>Nenhum medicamento, alimento ou líquido cadastrado!</li>';
+        // Renderiza a tela inicial com base no usuário ativo
+        function renderMainScreen() {
+            const medsRef = getMedsRef();
+            onValue(medsRef, (snapshot) => {
+                const meds = snapshot.val() || {};
+                const medList = document.getElementById('medList');
+                medList.innerHTML = meds ? '' : '<li>Nenhum medicamento, alimento ou líquido cadastrado!</li>';
 
-            Object.entries(meds).filter(([_, med]) => med.enabled !== false).forEach(([key, med]) => {
-                const li = document.createElement('li');
-                const nextTime = getNextTime(med.lastTaken, med.periodicity);
-                li.innerHTML = `
-                    ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
-                    | Tomado às: <input type="text" id="taken-${key}" value="" placeholder="hhmm" maxlength="4">
-                `;
-                li.querySelector(`#taken-${key}`).addEventListener('change', (e) => {
-                    const value = e.target.value;
-                    if (/^\d{4}$/.test(value)) {
-                        const hours = parseInt(value.slice(0, 2));
-                        const minutes = parseInt(value.slice(2, 4));
-                        if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-                            const localDate = new Date();
-                            localDate.setHours(hours, minutes, 0, 0); // Define horário local
-                            const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
-                            const newLastTaken = utcDate.toISOString();
-                            update(ref(db, `medications/${key}`), { 
-                                lastTaken: newLastTaken,
-                                history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
-                            }).then(() => {
-                                e.target.value = ''; // Limpa o campo
-                            }).catch((error) => {
-                                document.getElementById('mainError').textContent = "Erro ao registrar: " + error.message;
-                            });
+                Object.entries(meds).filter(([_, med]) => med.enabled !== false).forEach(([key, med]) => {
+                    const li = document.createElement('li');
+                    const nextTime = getNextTime(med.lastTaken, med.periodicity);
+                    li.innerHTML = `
+                        ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
+                        | Tomado às: <input type="text" id="taken-${key}" value="" placeholder="hhmm" maxlength="4">
+                    `;
+                    li.querySelector(`#taken-${key}`).addEventListener('change', (e) => {
+                        const value = e.target.value;
+                        if (/^\d{4}$/.test(value)) {
+                            const hours = parseInt(value.slice(0, 2));
+                            const minutes = parseInt(value.slice(2, 4));
+                            if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                                const localDate = new Date();
+                                localDate.setHours(hours, minutes, 0, 0); // Define horário local
+                                const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
+                                const newLastTaken = utcDate.toISOString();
+                                update(ref(db, `users/${currentUserId}/medications/${key}`), { 
+                                    lastTaken: newLastTaken,
+                                    history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
+                                }).then(() => {
+                                    e.target.value = ''; // Limpa o campo
+                                }).catch((error) => {
+                                    document.getElementById('mainError').textContent = "Erro ao registrar: " + error.message;
+                                });
+                            } else {
+                                document.getElementById('mainError').textContent = "Horário inválido!";
+                            }
                         } else {
-                            document.getElementById('mainError').textContent = "Horário inválido!";
+                            document.getElementById('mainError').textContent = "Digite hhmm (ex.: 1556)!";
                         }
-                    } else {
-                        document.getElementById('mainError').textContent = "Digite hhmm (ex.: 1556)!";
-                    }
+                    });
+                    medList.appendChild(li);
                 });
-                medList.appendChild(li);
             });
-        });
+        }
 
         // Função para cadastrar usuário
         function addUser() {
@@ -334,14 +350,21 @@
                     userList.appendChild(li);
 
                     const userNameSpan = li.querySelector('.user-name');
-                    userNameSpan.addEventListener('click', () => {
-                        const noteDiv = document.getElementById(`note-${key}`);
+                    const hasNoteSpan = li.querySelector('.has-note');
+                    const noteDiv = document.getElementById(`note-${key}`);
+
+                    function toggleNote() {
                         noteDiv.style.display = noteDiv.style.display === 'block' ? 'none' : 'block';
                         set(lastUserRef, { id: key }).then(() => {
                             const firstName = user.name.split(' ')[0];
                             document.getElementById('goToUser').textContent = firstName;
+                            currentUserId = key;
+                            renderMainScreen();
                         });
-                    });
+                    }
+
+                    userNameSpan.addEventListener('click', toggleNote);
+                    if (hasNoteSpan) hasNoteSpan.addEventListener('click', toggleNote);
 
                     document.getElementById(`editUser-${key}`).addEventListener('click', () => {
                         const newName = prompt("Digite o novo nome:", user.name);
@@ -355,11 +378,13 @@
                     });
 
                     document.getElementById(`deleteUser-${key}`).addEventListener('click', () => {
-                        if (confirm("Tem certeza que deseja excluir este usuário?")) {
+                        if (confirm("Tem certeza que deseja excluir este usuário? Isso excluirá todos os medicamentos associados!")) {
                             remove(ref(db, `users/${key}`)).then(() => {
                                 if (currentUserId === key) {
                                     set(lastUserRef, null);
                                     document.getElementById('goToUser').textContent = "Usuário";
+                                    currentUserId = null;
+                                    renderMainScreen();
                                 }
                             });
                         }
@@ -370,6 +395,10 @@
 
         // Função para cadastrar medicamento
         function addMedication() {
+            if (!currentUserId) {
+                document.getElementById('addError').textContent = "Selecione um usuário primeiro!";
+                return;
+            }
             const nameInput = document.getElementById('addNameInput');
             const periodInput = document.getElementById('addPeriodInput');
             const name = nameInput.value.trim();
@@ -380,6 +409,7 @@
                 return;
             }
 
+            const medsRef = getMedsRef();
             push(medsRef, {
                 name,
                 periodicity,
@@ -400,6 +430,7 @@
 
         // Renderiza a tela de edição
         function renderEditScreen() {
+            const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
                 const editList = document.getElementById('editMedList');
@@ -424,7 +455,7 @@
                 document.getElementById('editError').textContent = "Preencha nome e periodicidade válida!";
                 return;
             }
-            update(ref(db, `medications/${key}`), { name, periodicity });
+            update(ref(db, `users/${currentUserId}/medications/${key}`), { name, periodicity });
             document.getElementById('editSuccess').textContent = "Item atualizado com sucesso!";
             setTimeout(() => document.getElementById('editSuccess').textContent = '', 2000);
             showScreen('mainScreen');
@@ -432,6 +463,7 @@
 
         // Renderiza a tela de exclusão
         function renderDeleteScreen() {
+            const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
                 const deleteList = document.getElementById('deleteMedList');
@@ -451,14 +483,14 @@
         }
 
         function disableItem(key) {
-            update(ref(db, `medications/${key}`), { enabled: false });
+            update(ref(db, `users/${currentUserId}/medications/${key}`), { enabled: false });
             document.getElementById('deleteSuccess').textContent = "Item desabilitado com sucesso!";
             setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
             showScreen('mainScreen');
         }
 
         function deleteItem(key) {
-            remove(ref(db, `medications/${key}`));
+            remove(ref(db, `users/${currentUserId}/medications/${key}`));
             document.getElementById('deleteSuccess').textContent = "Item excluído com sucesso!";
             setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
             showScreen('mainScreen');
@@ -475,12 +507,12 @@
                     localDate.setHours(hours, minutes, 0, 0);
                     const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000);
                     const newTaken = utcDate.toISOString();
-                    onValue(ref(db, `medications/${key}`), (snapshot) => {
+                    onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                         const med = snapshot.val();
                         if (med.history && med.history[index]) {
                             const updatedHistory = [...med.history];
                             updatedHistory[index] = newTaken;
-                            update(ref(db, `medications/${key}`), { history: updatedHistory }).then(() => {
+                            update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
                                 renderReportScreen('daily'); // Atualiza o relatório
                             });
                         }
@@ -493,12 +525,12 @@
 
         // Função para excluir um registro do histórico
         function deleteHistory(key, index) {
-            onValue(ref(db, `medications/${key}`), (snapshot) => {
+            onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                 const med = snapshot.val();
                 if (med.history && med.history[index]) {
                     const updatedHistory = [...med.history];
                     updatedHistory.splice(index, 1);
-                    update(ref(db, `medications/${key}`), { history: updatedHistory }).then(() => {
+                    update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
                         renderReportScreen('daily'); // Atualiza o relatório
                     });
                 }
@@ -507,6 +539,7 @@
 
         // Renderiza a tela de relatórios
         function renderReportScreen(type) {
+            const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
                 const reportList = document.getElementById('reportList');
