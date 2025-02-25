@@ -243,7 +243,7 @@
 
         // Função para formatar data/hora com lógica de cores
         function formatDateTime(dateTime) {
-            if (!dateTime) return '';
+            if (!dateTime) return '<span>Aguardando informações!</span>'; // Mensagem quando não há dados
             const date = new Date(dateTime);
             const dateLocal = new Date(date.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
             const day = String(dateLocal.getDate()).padStart(2, '0');
@@ -265,10 +265,7 @@
 
         // Função para calcular o próximo horário
         function getNextTime(lastTaken, periodicity) {
-            if (!lastTaken) {
-                const now = new Date();
-                return now.toISOString();
-            }
+            if (!lastTaken) return null; // Retorna null se não houver último horário
             const last = new Date(lastTaken);
             const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
             const nextTimeMs = last.getTime() + periodMs; // Sem correção extra
