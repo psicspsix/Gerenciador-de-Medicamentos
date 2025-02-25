@@ -200,7 +200,7 @@
             }
             const last = new Date(lastTaken);
             const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
-            const nextTimeMs = last.getTime() + periodMs; // Sem correção adicional
+            const nextTimeMs = last.getTime() + periodMs;
             const next = new Date(nextTimeMs);
             return next.toISOString();
         }
@@ -350,8 +350,10 @@
                 const hours = parseInt(newTime.slice(0, 2));
                 const minutes = parseInt(newTime.slice(2, 4));
                 if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-                    const today = new Date().toISOString().split('T')[0];
-                    const newTaken = `${today}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`;
+                    const localDate = new Date();
+                    localDate.setHours(hours, minutes, 0, 0);
+                    const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000);
+                    const newTaken = utcDate.toISOString();
                     onValue(ref(db, `medications/${key}`), (snapshot) => {
                         const med = snapshot.val();
                         if (med.history && med.history[index]) {
