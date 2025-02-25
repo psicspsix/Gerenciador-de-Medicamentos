@@ -75,6 +75,16 @@
         }
         [id$="Error"] { color: #ff5555; }
         [id$="Success"] { color: #55ff55; }
+        .user-note {
+            display: none;
+            font-size: 20px;
+            margin-top: 10px;
+            color: #e0e0e0;
+        }
+        .has-note {
+            font-style: italic;
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
@@ -86,7 +96,7 @@
         <div class="nav-buttons">
             <button id="goToUser">Usuário</button>
             <button id="goToAdd">Cadastrar Item</button>
-            <button id="goToEdit">Alterar Item Já Cadastrado</button>
+            <button id="goToEdit">Alterar Item</button>
             <button id="goToDelete">Excluir ou Desabilitar Item</button>
             <button id="goToReport">Relatórios</button>
         </div>
@@ -96,10 +106,11 @@
     </div>
 
     <div id="userScreen" class="screen">
-        <h1>Cadastrar Usuário</h1>
+        <h1>Usuários</h1>
         <input type="text" id="userNameInput" placeholder="Nome do usuário">
         <button id="saveUser">Salvar</button>
         <button id="backFromUser">Voltar</button>
+        <ul id="userList"></ul>
         <div id="userError"></div>
         <div id="userSuccess"></div>
     </div>
@@ -115,7 +126,7 @@
     </div>
 
     <div id="editScreen" class="screen">
-        <h1>Alterar Item Já Cadastrado</h1>
+        <h1>Alterar Item</h1>
         <ul id="editMedList"></ul>
         <button id="backFromEdit">Voltar</button>
         <div id="editError"></div>
@@ -160,8 +171,10 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const medsRef = ref(db, 'medications'); // Temporário, será ajustado por usuário depois
         const usersRef = ref(db, 'users');
+        const lastUserRef = ref(db, 'lastUser');
+        let currentUserId = null;
+        let medsRef = ref(db, 'medications'); // Temporário, será ajustado por usuário
 
         // Atualiza o horário atual
         function updateCurrentTime() {
@@ -177,6 +190,7 @@
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
+            if (screenId === 'userScreen') renderUserScreen();
             if (screenId === 'editScreen') renderEditScreen();
             if (screenId === 'deleteScreen') renderDeleteScreen();
             if (screenId === 'reportScreen') renderReportScreen('daily');
@@ -216,6 +230,21 @@
             const next = new Date(nextTimeMs);
             return next.toISOString();
         }
+
+        // Carrega o último usuário ativo
+        onValue(lastUserRef, (snapshot) => {
+            const lastUser = snapshot.val();
+            if (lastUser && lastUser.id) {
+                currentUserId = lastUser.id;
+                onValue(ref(db, `users/${currentUserId}`), (userSnapshot) => {
+                    const user = userSnapshot.val();
+                    if (user && user.name) {
+                        const firstName = user.name.split(' ')[0];
+                        document.getElementById('goToUser').textContent = firstName;
+                    }
+                }, { onlyOnce: true });
+            }
+        });
 
         // Renderiza a tela inicial
         onValue(medsRef, (snapshot) => {
@@ -270,15 +299,72 @@
             }
 
             push(usersRef, {
-                name: name
-            }).then(() => {
-                nameInput.value = '';
-                document.getElementById('userError').textContent = '';
-                document.getElementById('userSuccess').textContent = "Usuário cadastrado com sucesso!";
-                setTimeout(() => document.getElementById('userSuccess').textContent = '', 2000);
-                showScreen('mainScreen');
+                name: name,
+                note: ""
+            }).then((newUserRef) => {
+                const userId = newUserRef.key;
+                set(lastUserRef, { id: userId }).then(() => {
+                    nameInput.value = '';
+                    document.getElementById('userError').textContent = '';
+                    document.getElementById('userSuccess').textContent = "Usuário cadastrado com sucesso!";
+                    setTimeout(() => document.getElementById('userSuccess').textContent = '', 2000);
+                    showScreen('mainScreen');
+                });
             }).catch((error) => {
                 document.getElementById('userError').textContent = "Erro ao cadastrar: " + error.message;
+            });
+        }
+
+        // Renderiza a tela de usuários
+        function renderUserScreen() {
+            onValue(usersRef, (snapshot) => {
+                const users = snapshot.val() || {};
+                const userList = document.getElementById('userList');
+                userList.innerHTML = '';
+
+                Object.entries(users).forEach(([key, user]) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="user-name">${user.name}</span>
+                        <button id="editUser-${key}">Editar</button>
+                        <button id="deleteUser-${key}">Excluir</button>
+                        ${user.note ? '<span class="has-note">(Contém Nota)</span>' : ''}
+                        <div id="note-${key}" class="user-note">${user.note || ''}</div>
+                    `;
+                    userList.appendChild(li);
+
+                    const userNameSpan = li.querySelector('.user-name');
+                    userNameSpan.addEventListener('click', () => {
+                        const noteDiv = document.getElementById(`note-${key}`);
+                        noteDiv.style.display = noteDiv.style.display === 'block' ? 'none' : 'block';
+                        set(lastUserRef, { id: key }).then(() => {
+                            const firstName = user.name.split(' ')[0];
+                            document.getElementById('goToUser').textContent = firstName;
+                        });
+                    });
+
+                    document.getElementById(`editUser-${key}`).addEventListener('click', () => {
+                        const newName = prompt("Digite o novo nome:", user.name);
+                        if (newName) {
+                            const newNote = prompt("Digite uma nova nota (opcional):", user.note || "");
+                            update(ref(db, `users/${key}`), { 
+                                name: newName,
+                                note: newNote || ""
+                            });
+                        }
+                    });
+
+                    document.getElementById(`deleteUser-${key}`).addEventListener('click', () => {
+                        if (confirm("Tem certeza que deseja excluir este usuário?")) {
+                            remove(ref(db, `users/${key}`)).then(() => {
+                                if (currentUserId === key) {
+                                    set(lastUserRef, null);
+                                    document.getElementById('goToUser').textContent = "Usuário";
+                                }
+                            });
+                        }
+                    });
+                });
             });
         }
 
