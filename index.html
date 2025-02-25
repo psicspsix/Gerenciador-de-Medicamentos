@@ -50,15 +50,26 @@
             list-style-type: none;
             padding: 0;
         }
-        li {
+        #medList li {
             font-size: 28px;
             margin: 15px 0;
             background: #2a2a2a;
             padding: 20px;
             border-radius: 10px;
             display: flex;
-            flex-direction: column; /* Mudança para column */
-            align-items: flex-start; /* Alinha à esquerda */
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; /* Permite quebra de linha se necessário */
+        }
+        #userList li {
+            font-size: 28px;
+            margin: 15px 0;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
         }
         .user-row {
             display: flex;
@@ -98,6 +109,7 @@
             width: 100%;
             text-align: left;
             word-wrap: break-word;
+            min-height: 60px; /* Aproximadamente 3 linhas */
         }
     </style>
 </head>
@@ -279,7 +291,11 @@
                     li.innerHTML = `
                         ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
                         | Tomado às: <input type="text" id="taken-${key}" value="" placeholder="hhmm" maxlength="4">
+                        <button id="currentTime-${key}">Hora Atual</button>
                     `;
+                    medList.appendChild(li);
+
+                    // Evento para o campo de texto
                     li.querySelector(`#taken-${key}`).addEventListener('change', (e) => {
                         const value = e.target.value;
                         if (/^\d{4}$/.test(value)) {
@@ -305,7 +321,26 @@
                             document.getElementById('mainError').textContent = "Digite hhmm (ex.: 1556)!";
                         }
                     });
-                    medList.appendChild(li);
+
+                    // Evento para o botão "Hora Atual"
+                    li.querySelector(`#currentTime-${key}`).addEventListener('click', () => {
+                        const now = new Date();
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        const value = `${hours}${minutes}`;
+                        const localDate = new Date();
+                        localDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                        const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000);
+                        const newLastTaken = utcDate.toISOString();
+                        update(ref(db, `users/${currentUserId}/medications/${key}`), { 
+                            lastTaken: newLastTaken,
+                            history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
+                        }).then(() => {
+                            document.getElementById(`taken-${key}`).value = ''; // Limpa o campo
+                        }).catch((error) => {
+                            document.getElementById('mainError').textContent = "Erro ao registrar: " + error.message;
+                        });
+                    });
                 });
             });
         }
