@@ -200,7 +200,8 @@
             }
             const last = new Date(lastTaken);
             const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
-            const nextTimeMs = last.getTime() + periodMs;
+            const correctionMs = 3 * 60 * 60 * 1000; // Correção de +3 horas
+            const nextTimeMs = last.getTime() + periodMs + correctionMs;
             const next = new Date(nextTimeMs);
             return next.toISOString();
         }
@@ -409,7 +410,7 @@
                                 const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
                                 shouldInclude = takenLocal >= weekAgo;
                             } else if (type === 'monthly') {
-                                const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                                const monthAgo = new Date(now - 30 * 24 * 60 * 1000);
                                 shouldInclude = takenLocal >= monthAgo;
                             }
                             if (shouldInclude) {
