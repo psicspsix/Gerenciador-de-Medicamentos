@@ -68,8 +68,8 @@
         .future-day { color: #1e90ff; } /* Azul */
         .on-time { color: #00ff00; } /* Verde */
         .late { color: #ff5555; } /* Vermelho claro */
-        #mainError, #addError, #editError, #deleteError, #reportError,
-        #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess, #reportSuccess {
+        #mainError, #addError, #editError, #deleteError, #reportError, #userError,
+        #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess, #reportSuccess, #userSuccess {
             font-size: 24px;
             margin: 10px 0;
         }
@@ -84,6 +84,7 @@
             <span id="currentTime"></span>
         </div>
         <div class="nav-buttons">
+            <button id="goToUser">Usuário</button>
             <button id="goToAdd">Cadastrar Item</button>
             <button id="goToEdit">Alterar Item Já Cadastrado</button>
             <button id="goToDelete">Excluir ou Desabilitar Item</button>
@@ -92,6 +93,15 @@
         <ul id="medList"></ul>
         <div id="mainError"></div>
         <div id="mainSuccess"></div>
+    </div>
+
+    <div id="userScreen" class="screen">
+        <h1>Cadastrar Usuário</h1>
+        <input type="text" id="userNameInput" placeholder="Nome do usuário">
+        <button id="saveUser">Salvar</button>
+        <button id="backFromUser">Voltar</button>
+        <div id="userError"></div>
+        <div id="userSuccess"></div>
     </div>
 
     <div id="addScreen" class="screen">
@@ -150,7 +160,8 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const medsRef = ref(db, 'medications');
+        const medsRef = ref(db, 'medications'); // Temporário, será ajustado por usuário depois
+        const usersRef = ref(db, 'users');
 
         // Atualiza o horário atual
         function updateCurrentTime() {
@@ -247,6 +258,29 @@
                 medList.appendChild(li);
             });
         });
+
+        // Função para cadastrar usuário
+        function addUser() {
+            const nameInput = document.getElementById('userNameInput');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                document.getElementById('userError').textContent = "Preencha o nome do usuário!";
+                return;
+            }
+
+            push(usersRef, {
+                name: name
+            }).then(() => {
+                nameInput.value = '';
+                document.getElementById('userError').textContent = '';
+                document.getElementById('userSuccess').textContent = "Usuário cadastrado com sucesso!";
+                setTimeout(() => document.getElementById('userSuccess').textContent = '', 2000);
+                showScreen('mainScreen');
+            }).catch((error) => {
+                document.getElementById('userError').textContent = "Erro ao cadastrar: " + error.message;
+            });
+        }
 
         // Função para cadastrar medicamento
         function addMedication() {
@@ -447,10 +481,13 @@
 
         // Vincula eventos aos botões de navegação após o DOM carregar
         document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('goToUser').addEventListener('click', () => showScreen('userScreen'));
             document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
             document.getElementById('goToEdit').addEventListener('click', () => showScreen('editScreen'));
             document.getElementById('goToDelete').addEventListener('click', () => showScreen('deleteScreen'));
             document.getElementById('goToReport').addEventListener('click', () => showScreen('reportScreen'));
+            document.getElementById('saveUser').addEventListener('click', addUser);
+            document.getElementById('backFromUser').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('saveAdd').addEventListener('click', addMedication);
             document.getElementById('backFromAdd').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
