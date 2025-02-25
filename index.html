@@ -397,9 +397,11 @@
                         sortedHistory.forEach((taken, index) => {
                             const takenDate = new Date(taken);
                             const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
+                            const takenLocalDate = new Date(takenLocal);
+                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
                             let shouldInclude = false;
                             if (type === 'daily') {
-                                shouldInclude = takenLocal.toDateString() === now.toDateString();
+                                shouldInclude = takenLocalDate.getTime() === today.getTime();
                             } else if (type === 'weekly') {
                                 const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
                                 shouldInclude = takenLocal >= weekAgo;
