@@ -57,8 +57,14 @@
             padding: 20px;
             border-radius: 10px;
             display: flex;
+            flex-direction: column; /* Mudança para column */
+            align-items: flex-start; /* Alinha à esquerda */
+        }
+        .user-row {
+            display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
         }
         .next-time {
             font-size: 36px;
@@ -341,10 +347,14 @@
                 Object.entries(users).forEach(([key, user]) => {
                     const li = document.createElement('li');
                     li.innerHTML = `
-                        <span class="user-name">${user.name}</span>
-                        <button id="editUser-${key}">Editar</button>
-                        <button id="deleteUser-${key}">Excluir</button>
-                        ${user.note ? '<span class="has-note">(Contém Nota)</span>' : ''}
+                        <div class="user-row">
+                            <span class="user-name">${user.name}</span>
+                            <div>
+                                <button id="editUser-${key}">Editar</button>
+                                <button id="deleteUser-${key}">Excluir</button>
+                                ${user.note ? '<span class="has-note">(Contém Nota)</span>' : ''}
+                            </div>
+                        </div>
                         <div id="note-${key}" class="user-note">${user.note || ''}</div>
                     `;
                     userList.appendChild(li);
