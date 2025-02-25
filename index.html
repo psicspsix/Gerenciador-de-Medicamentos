@@ -28,6 +28,18 @@
         }
         .nav-buttons {
             margin: 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .report-buttons-left {
+            display: flex;
+            justify-content: flex-start;
+            flex-grow: 1;
+        }
+        .report-buttons-right {
+            display: flex;
+            justify-content: flex-end;
         }
         button, input {
             font-size: 24px;
@@ -185,9 +197,15 @@
     <div id="reportScreen" class="screen">
         <h1>Relatórios</h1>
         <div class="nav-buttons">
-            <button id="dailyReport">Diário</button>
-            <button id="weeklyReport">Semanal</button>
-            <button id="monthlyReport">Mensal</button>
+            <div class="report-buttons-left">
+                <button id="dailyReport">Diário</button>
+                <button id="weeklyReport">Semanal</button>
+                <button id="monthlyReport">Mensal</button>
+            </div>
+            <div class="report-buttons-right">
+                <button id="chronoOrder">Ordenamento Cronológico</button>
+                <button id="typeOrder">Ordenamento por Tipo de Item</button>
+            </div>
         </div>
         <ul id="reportList"></ul>
         <button id="backFromReport">Voltar</button>
@@ -567,7 +585,7 @@
         }
 
         // Função para editar um registro no histórico
-        function editHistory(key, index) {
+        function editHistory(key, index, sortedHistory) {
             const newTime = prompt("Digite o novo horário (hhmm):", "");
             if (newTime && /^\d{4}$/.test(newTime)) {
                 const hours = parseInt(newTime.slice(0, 2));
@@ -581,7 +599,7 @@
                         const med = snapshot.val();
                         if (med.history && med.history[index]) {
                             const updatedHistory = [...med.history];
-                            updatedHistory[index] = newTaken;
+                            updatedHistory[sortedHistory.indexOf(taken)] = newTaken;
                             update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
                                 renderReportScreen('daily'); // Atualiza o relatório
                             });
@@ -594,12 +612,12 @@
         }
 
         // Função para excluir um registro do histórico
-        function deleteHistory(key, index) {
+        function deleteHistory(key, index, sortedHistory) {
             onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                 const med = snapshot.val();
                 if (med.history && med.history[index]) {
                     const updatedHistory = [...med.history];
-                    updatedHistory.splice(index, 1);
+                    updatedHistory.splice(sortedHistory.indexOf(taken), 1);
                     update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
                         renderReportScreen('daily'); // Atualiza o relatório
                     });
@@ -607,8 +625,8 @@
             }, { onlyOnce: true });
         }
 
-        // Renderiza a tela de relatórios
-        function renderReportScreen(type) {
+        // Renderiza a tela de relatórios com ordenamento
+        function renderReportScreen(type, order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
@@ -618,15 +636,15 @@
                 const today = new Date(now.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
                 today.setHours(0, 0, 0, 0);
 
+                let allEntries = [];
                 Object.entries(meds).forEach(([key, med]) => {
                     if (med.history && med.history.length > 0) {
-                        const sortedHistory = [...med.history].sort((a, b) => new Date(a) - new Date(b));
-                        sortedHistory.forEach((taken, index) => {
+                        med.history.forEach((taken, index) => {
                             const takenDate = new Date(taken);
                             const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
-                            let shouldInclude = false;
                             const takenLocalDate = new Date(takenLocal);
                             takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
+                            let shouldInclude = false;
                             if (type === 'daily') {
                                 shouldInclude = takenLocalDate.getTime() === today.getTime();
                             } else if (type === 'weekly') {
@@ -637,31 +655,48 @@
                                 shouldInclude = takenLocal >= monthAgo;
                             }
                             if (shouldInclude) {
-                                const li = document.createElement('li');
-                                const periodMs = med.periodicity * 60 * 60 * 1000;
-                                let expectedLocal;
-                                if (index === 0) {
-                                    expectedLocal = null; // Primeiro registro não tem esperado anterior
-                                } else {
-                                    const previousTaken = new Date(sortedHistory[index - 1]);
-                                    const expected = new Date(previousTaken.getTime() + periodMs);
-                                    expectedLocal = new Date(expected.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
-                                }
-                                const diff = index === 0 ? 0 : Math.abs(takenLocal - expectedLocal); // Primeiro registro é sempre "on-time"
-                                const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
-                                li.innerHTML = `
-                                    ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                    | Esperado: ${index === 0 ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
-                                    <button id="editHist-${key}-${index}">Editar</button>
-                                    <button id="delHist-${key}-${index}">Excluir</button>
-                                `;
-                                reportList.appendChild(li);
-                                document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, sortedHistory.indexOf(taken)));
-                                document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, sortedHistory.indexOf(taken)));
+                                allEntries.push({ key, med, taken, index });
                             }
                         });
                     }
                 });
+
+                // Ordenamento
+                if (order === 'chrono') {
+                    allEntries.sort((a, b) => new Date(a.taken) - new Date(b.taken));
+                } else if (order === 'type') {
+                    allEntries.sort((a, b) => {
+                        const nameCompare = a.med.name.localeCompare(b.med.name);
+                        if (nameCompare !== 0) return nameCompare;
+                        return new Date(a.taken) - new Date(b.taken);
+                    });
+                }
+
+                allEntries.forEach(({ key, med, taken, index }) => {
+                    const li = document.createElement('li');
+                    const takenLocal = new Date(new Date(taken).getTime() - 3 * 60 * 60 * 1000);
+                    const periodMs = med.periodicity * 60 * 60 * 1000;
+                    let expectedLocal;
+                    if (index === 0) {
+                        expectedLocal = null; // Primeiro registro não tem esperado anterior
+                    } else {
+                        const previousTaken = new Date(allEntries.find(e => e.key === key && e.index === index - 1)?.taken || taken);
+                        const expected = new Date(previousTaken.getTime() + periodMs);
+                        expectedLocal = new Date(expected.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                    }
+                    const diff = index === 0 ? 0 : Math.abs(takenLocal - expectedLocal); // Primeiro registro é sempre "on-time"
+                    const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
+                    li.innerHTML = `
+                        ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                        | Esperado: ${index === 0 ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        <button id="editHist-${key}-${index}">Editar</button>
+                        <button id="delHist-${key}-${index}">Excluir</button>
+                    `;
+                    reportList.appendChild(li);
+                    document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken)));
+                    document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index, allEntries.map(e => e.taken)));
+                });
+
                 if (!reportList.children.length) {
                     reportList.innerHTML = '<li>Nenhum registro encontrado!</li>';
                 }
@@ -685,6 +720,8 @@
             document.getElementById('dailyReport').addEventListener('click', () => renderReportScreen('daily'));
             document.getElementById('weeklyReport').addEventListener('click', () => renderReportScreen('weekly'));
             document.getElementById('monthlyReport').addEventListener('click', () => renderReportScreen('monthly'));
+            document.getElementById('chronoOrder').addEventListener('click', () => renderReportScreen('daily', 'chrono'));
+            document.getElementById('typeOrder').addEventListener('click', () => renderReportScreen('daily', 'type'));
         });
     </script>
 </body>
