@@ -396,17 +396,16 @@
                         const sortedHistory = [...med.history].sort((a, b) => new Date(a) - new Date(b));
                         sortedHistory.forEach((taken, index) => {
                             const takenDate = new Date(taken);
-                            const takenLocal = new Date(takenDate.getTime()); // Mantém UTC como base
-                            const takenLocalAdjusted = new Date(takenLocal.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
                             let shouldInclude = false;
                             if (type === 'daily') {
-                                shouldInclude = takenLocalAdjusted.toDateString() === now.toDateString();
+                                shouldInclude = takenLocal.toDateString() === now.toDateString();
                             } else if (type === 'weekly') {
                                 const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-                                shouldInclude = takenLocalAdjusted >= weekAgo;
+                                shouldInclude = takenLocal >= weekAgo;
                             } else if (type === 'monthly') {
                                 const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-                                shouldInclude = takenLocalAdjusted >= monthAgo;
+                                shouldInclude = takenLocal >= monthAgo;
                             }
                             if (shouldInclude) {
                                 const li = document.createElement('li');
@@ -414,10 +413,10 @@
                                 const expected = new Date(taken);
                                 expected.setTime(expected.getTime() + periodMs);
                                 const expectedLocal = new Date(expected.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
-                                const diff = Math.abs(takenLocalAdjusted - expectedLocal);
+                                const diff = Math.abs(takenLocal - expectedLocal);
                                 const onTime = diff <= 30 * 60 * 1000; // ±30min
                                 li.innerHTML = `
-                                    ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocalAdjusted.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                    ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                     | Esperado: ${index === 0 ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                     <button id="editHist-${key}-${index}">Editar</button>
                                     <button id="delHist-${key}-${index}">Excluir</button>
