@@ -175,6 +175,7 @@
         function formatDateTime(dateTime) {
             if (!dateTime) return '';
             const date = new Date(dateTime);
+            date.setHours(date.getHours() - 3); // Ajusta UTC para GMT-3
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const year = date.getFullYear();
@@ -185,6 +186,7 @@
             const today = new Date(now);
             today.setHours(0, 0, 0, 0);
             const due = new Date(dateTime);
+            due.setHours(due.getHours() - 3); // Ajusta UTC para GMT-3
             due.setHours(0, 0, 0, 0);
             const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
             if (diffDays === 0) className = 'same-day'; // Mesmo dia (amarelo)
@@ -396,6 +398,7 @@
                         const sortedHistory = [...med.history].sort((a, b) => new Date(a) - new Date(b));
                         sortedHistory.forEach((taken, index) => {
                             const takenDate = new Date(taken);
+                            takenDate.setHours(takenDate.getHours() - 3); // Ajusta UTC para GMT-3
                             let shouldInclude = false;
                             if (type === 'daily') {
                                 shouldInclude = takenDate.toDateString() === now.toDateString();
@@ -409,8 +412,8 @@
                             if (shouldInclude) {
                                 const li = document.createElement('li');
                                 const periodMs = med.periodicity * 60 * 60 * 1000;
-                                const expected = index === 0 ? new Date(taken) : new Date(sortedHistory[index - 1]);
-                                expected.setTime(expected.getTime() + periodMs);
+                                const expected = new Date(taken);
+                                expected.setHours(expected.getHours() + med.periodicity); // Apenas periodicidade
                                 const diff = Math.abs(takenDate - expected);
                                 const onTime = diff <= 30 * 60 * 1000; // ±30min
                                 li.innerHTML = `
