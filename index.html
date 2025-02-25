@@ -200,8 +200,7 @@
             }
             const last = new Date(lastTaken);
             const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
-            const correctionMs = 3 * 60 * 60 * 1000; // Correção de +3 horas
-            const nextTimeMs = last.getTime() + periodMs + correctionMs;
+            const nextTimeMs = last.getTime() + periodMs; // Sem correção adicional
             const next = new Date(nextTimeMs);
             return next.toISOString();
         }
@@ -225,8 +224,10 @@
                         const hours = parseInt(value.slice(0, 2));
                         const minutes = parseInt(value.slice(2, 4));
                         if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-                            const today = new Date().toISOString().split('T')[0];
-                            const newLastTaken = `${today}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`;
+                            const localDate = new Date();
+                            localDate.setHours(hours, minutes, 0, 0); // Define horário local
+                            const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
+                            const newLastTaken = utcDate.toISOString();
                             update(ref(db, `medications/${key}`), { 
                                 lastTaken: newLastTaken,
                                 history: med.history ? [...med.history, newLastTaken] : [newLastTaken]
@@ -397,9 +398,9 @@
                         sortedHistory.forEach((taken, index) => {
                             const takenDate = new Date(taken);
                             const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
+                            let shouldInclude = false;
                             const takenLocalDate = new Date(takenLocal);
                             takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
-                            let shouldInclude = false;
                             if (type === 'daily') {
                                 shouldInclude = takenLocalDate.getTime() === today.getTime();
                             } else if (type === 'weekly') {
