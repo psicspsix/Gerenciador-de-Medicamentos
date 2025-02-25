@@ -104,6 +104,9 @@
             font-size: 36px;
             font-weight: bold;
         }
+        .next-time span {
+            font-size: 18px; /* Reduzido para metade quando "Aguardando informações!" */
+        }
         .same-day { color: #ffff00; } /* Amarelo */
         .future-day { color: #1e90ff; } /* Azul */
         .on-time { color: #00ff00; } /* Verde */
@@ -138,6 +141,10 @@
             padding: 10px;
             resize: none; /* Impede redimensionamento */
         }
+        .status-text {
+            font-size: 24px;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -150,7 +157,7 @@
             <button id="goToUser">Usuário</button>
             <button id="goToAdd">Cadastrar Item</button>
             <button id="goToEdit">Alterar Item</button>
-            <button id="goToDelete">Excluir ou Desabilitar Item</button>
+            <button id="goToDelete">Excluir ou Mudar Status do Item</button>
             <button id="goToReport">Relatórios</button>
         </div>
         <ul id="medList"></ul>
@@ -187,7 +194,7 @@
     </div>
 
     <div id="deleteScreen" class="screen">
-        <h1>Excluir ou Desabilitar Item</h1>
+        <h1>Excluir ou Mudar Status do Item</h1>
         <ul id="deleteMedList"></ul>
         <button id="backFromDelete">Voltar</button>
         <div id="deleteError"></div>
@@ -549,7 +556,7 @@
             showScreen('mainScreen');
         }
 
-        // Renderiza a tela de exclusão
+        // Renderiza a tela de exclusão/mudar status
         function renderDeleteScreen() {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -558,30 +565,41 @@
                 deleteList.innerHTML = '';
                 Object.entries(meds).forEach(([key, med]) => {
                     const li = document.createElement('li');
+                    const status = med.enabled !== false ? "Habilitado" : "Desabilitado";
                     li.innerHTML = `
                         ${med.name} | Periodicidade: ${med.periodicity}h
+                        <button id="enable-${key}">Habilitar</button>
                         <button id="disable-${key}">Desabilitar</button>
                         <button id="delete-${key}">Excluir</button>
+                        <span class="status-text">(${status})</span>
                     `;
                     deleteList.appendChild(li);
+                    document.getElementById(`enable-${key}`).addEventListener('click', () => enableItem(key));
                     document.getElementById(`disable-${key}`).addEventListener('click', () => disableItem(key));
                     document.getElementById(`delete-${key}`).addEventListener('click', () => deleteItem(key));
                 });
             });
         }
 
+        function enableItem(key) {
+            update(ref(db, `users/${currentUserId}/medications/${key}`), { enabled: true });
+            document.getElementById('deleteSuccess').textContent = "Item habilitado com sucesso!";
+            setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
+            showScreen('mainScreen');
+        }
+
         function disableItem(key) {
             update(ref(db, `users/${currentUserId}/medications/${key}`), { enabled: false });
             document.getElementById('deleteSuccess').textContent = "Item desabilitado com sucesso!";
             setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
-            showScreen('mainScreen');
+            renderDeleteScreen(); // Atualiza a tela para refletir o status
         }
 
         function deleteItem(key) {
             remove(ref(db, `users/${currentUserId}/medications/${key}`));
             document.getElementById('deleteSuccess').textContent = "Item excluído com sucesso!";
             setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
-            showScreen('mainScreen');
+            renderDeleteScreen(); // Atualiza a tela para remover o item
         }
 
         // Função para editar um registro no histórico
