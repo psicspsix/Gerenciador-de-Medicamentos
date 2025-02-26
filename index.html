@@ -641,7 +641,7 @@
             }, { onlyOnce: true });
         }
 
-        // Renderiza a tela de relatórios com ordenamento
+        // Renderiza a tela de relatórios com ordenamento (semanal e mensal intactos)
         function renderReportScreen(type, order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -719,6 +719,74 @@
             });
         }
 
+        // Nova função para renderizar apenas o relatório diário
+        function renderDailyReport(order = 'chrono') {
+            const medsRef = getMedsRef();
+            onValue(medsRef, (snapshot) => {
+                const meds = snapshot.val() || {};
+                const reportList = document.getElementById('reportList');
+                reportList.innerHTML = '';
+                const now = new Date();
+                const today = new Date(now); // Usa horário local diretamente
+                today.setHours(0, 0, 0, 0); // Meia-noite do dia atual em GMT-3
+
+                let allEntries = [];
+                Object.entries(meds).forEach(([key, med]) => {
+                    if (med.history && med.history.length > 0) {
+                        med.history.forEach((taken, index) => {
+                            const takenDate = new Date(taken);
+                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
+                            const takenLocalDate = new Date(takenLocal);
+                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
+                            if (takenLocalDate.getTime() === today.getTime()) { // Apenas o dia atual
+                                allEntries.push({ key, med, taken, index });
+                            }
+                        });
+                    }
+                });
+
+                // Ordenamento
+                if (order === 'chrono') {
+                    allEntries.sort((a, b) => new Date(a.taken) - new Date(b.taken));
+                } else if (order === 'type') {
+                    allEntries.sort((a, b) => {
+                        const nameCompare = a.med.name.localeCompare(b.med.name);
+                        if (nameCompare !== 0) return nameCompare;
+                        return new Date(a.taken) - new Date(b.taken);
+                    });
+                }
+
+                allEntries.forEach(({ key, med, taken, index }) => {
+                    const li = document.createElement('li');
+                    const takenLocal = new Date(new Date(taken).getTime() - 3 * 60 * 60 * 1000);
+                    const periodMs = med.periodicity * 60 * 60 * 1000;
+                    let expectedLocal;
+                    if (index === 0) {
+                        expectedLocal = null; // Primeiro registro não tem esperado anterior
+                    } else {
+                        const previousTaken = new Date(allEntries.find(e => e.key === key && e.index === index - 1)?.taken || taken);
+                        const expected = new Date(previousTaken.getTime() + periodMs);
+                        expectedLocal = new Date(expected.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                    }
+                    const diff = index === 0 ? 0 : Math.abs(takenLocal - expectedLocal); // Primeiro registro é sempre "on-time"
+                    const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
+                    li.innerHTML = `
+                        ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                        | Esperado: ${index === 0 ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        <button id="editHist-${key}-${index}">Editar</button>
+                        <button id="delHist-${key}-${index}">Excluir</button>
+                    `;
+                    reportList.appendChild(li);
+                    document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken)));
+                    document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index, allEntries.map(e => e.taken)));
+                });
+
+                if (!reportList.children.length) {
+                    reportList.innerHTML = '<li>Nenhum registro encontrado!</li>';
+                }
+            });
+        }
+
         // Vincula eventos aos botões de navegação após o DOM carregar
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('goToUser').addEventListener('click', () => showScreen('userScreen'));
@@ -733,11 +801,11 @@
             document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromDelete').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromReport').addEventListener('click', () => showScreen('mainScreen'));
-            document.getElementById('dailyReport').addEventListener('click', () => renderReportScreen('daily'));
+            document.getElementById('dailyReport').addEventListener('click', () => renderDailyReport('chrono')); // Usa a nova função
             document.getElementById('weeklyReport').addEventListener('click', () => renderReportScreen('weekly'));
             document.getElementById('monthlyReport').addEventListener('click', () => renderReportScreen('monthly'));
-            document.getElementById('chronoOrder').addEventListener('click', () => renderReportScreen('daily', 'chrono'));
-            document.getElementById('typeOrder').addEventListener('click', () => renderReportScreen('daily', 'type'));
+            document.getElementById('chronoOrder').addEventListener('click', () => renderDailyReport('chrono')); // Usa a nova função
+            document.getElementById('typeOrder').addEventListener('click', () => renderDailyReport('type')); // Usa a nova função
         });
     </script>
 </body>
