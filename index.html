@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciador de Medicamentos</title>
     <style>
+        /* Mantém o CSS original */
         body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #e0e0e0; text-align: center; }
         .header { display: flex; justify-content: space-between; align-items: center; }
         h1 { color: #ffffff; font-size: 36px; margin: 0; }
@@ -46,22 +47,7 @@
         <div id="mainSuccess"></div>
     </div>
 
-    <div id="reportScreen" class="screen">
-        <h2>Relatórios</h2>
-        <div class="nav-buttons">
-            <div class="report-buttons-left">
-                <button id="dailyReport">Diário</button>
-                <button id="weeklyReport">Semanal</button>
-                <button id="monthlyReport">Mensal</button>
-            </div>
-            <div class="report-buttons-right">
-                <button id="backToMainFromReport">Voltar</button>
-            </div>
-        </div>
-        <ul id="reportList"></ul>
-    </div>
-
-    <!-- Outras telas (userScreen, addScreen, editScreen, deleteScreen) omitidas para brevidade -->
+    <!-- Outras telas permanecem iguais -->
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -101,21 +87,23 @@
             document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
             if (screenId === 'mainScreen') renderMainScreen();
-            else if (screenId === 'reportScreen') renderReport('daily'); // Default para diário
         }
 
         function formatDateTime(dateTime) {
             if (!dateTime) return '<span>Aguardando!</span>';
-            const date = new Date(dateTime); // UTC do Firebase
-            const dateLocal = new Date(date.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+            const date = new Date(dateTime);
+            const dateLocal = new Date(date.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
+            const day = String(dateLocal.getDate()).padStart(2, '0');
+            const month = String(dateLocal.getMonth() + 1).padStart(2, '0');
+            const year = dateLocal.getFullYear();
             const hours = String(dateLocal.getHours()).padStart(2, '0');
             const minutes = String(dateLocal.getMinutes()).padStart(2, '0');
             let className = '';
-            const now = new Date(); // Horário local (GMT-3)
-            const today = new Date(now);
-            today.setHours(0, 0, 0, 0); // Meia-noite do dia atual
+            const now = new Date(); // Horário local do navegador
+            const today = new Date(now); // Sem ajuste extra
+            today.setHours(0, 0, 0, 0);
             const due = new Date(dateLocal);
-            due.setHours(0, 0, 0, 0); // Meia-noite do dia do próximo horário
+            due.setHours(0, 0, 0, 0);
             const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
             if (diffDays === 0) className = 'same-day'; // Amarelo
             else if (diffDays >= 1) className = 'future-day'; // Azul
@@ -124,11 +112,10 @@
 
         function getNextTime(lastTaken, periodicity) {
             if (!lastTaken) return null;
-            const last = new Date(lastTaken); // UTC do Firebase
-            const lastLocal = new Date(last.getTime() - 3 * 60 * 60 * 1000); // Converte para GMT-3
-            const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
-            const nextTimeLocalMs = lastLocal.getTime() + periodMs; // Próximo horário em GMT-3
-            return new Date(nextTimeLocalMs); // Retorna como objeto Date em GMT-3
+            const last = new Date(lastTaken);
+            const periodMs = periodicity * 60 * 60 * 1000;
+            const nextTimeMs = last.getTime() + periodMs;
+            return new Date(nextTimeMs).toISOString();
         }
 
         onValue(lastUserRef, (snapshot) => {
@@ -157,7 +144,7 @@
                     const li = document.createElement('li');
                     const nextTime = getNextTime(med.lastTaken, med.periodicity);
                     li.innerHTML = `
-                        ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime ? nextTime.toISOString() : null)}</span>
+                        ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
                         | Tomado às: <input type="text" id="taken-${key}" value="" placeholder="hhmm" maxlength="4">
                         <button id="currentTime-${key}">Hora Atual</button>
                     `;
@@ -210,53 +197,15 @@
             });
         }
 
-        function renderReport(type) {
-            const reportList = document.getElementById('reportList');
-            reportList.innerHTML = '';
-            const medsRef = getMedsRef();
-            onValue(medsRef, (snapshot) => {
-                const meds = snapshot.val() || {};
-                Object.entries(meds).filter(([_, med]) => med.enabled !== false).forEach(([_, med]) => {
-                    const li = document.createElement('li');
-                    const lastTaken = med.lastTaken ? new Date(med.lastTaken) : null; // UTC
-                    const lastTakenLocal = lastTaken ? new Date(lastTaken.getTime() - 3 * 60 * 60 * 1000) : null; // GMT-3
-                    const nextTimeLocal = lastTaken ? getNextTime(med.lastTaken, med.periodicity) : null; // GMT-3
-                    const lastTakenStr = lastTakenLocal ? `${String(lastTakenLocal.getDate()).padStart(2, '0')}/${String(lastTakenLocal.getMonth() + 1).padStart(2, '0')}/${lastTakenLocal.getFullYear()}, ${String(lastTakenLocal.getHours()).padStart(2, '0')}:${String(lastTakenLocal.getMinutes()).padStart(2, '0')}` : 'Nenhum registro';
-                    const nextTimeStr = nextTimeLocal ? `${String(nextTimeLocal.getDate()).padStart(2, '0')}/${String(nextTimeLocal.getMonth() + 1).padStart(2, '0')}/${nextTimeLocal.getFullYear()}, ${String(nextTimeLocal.getHours()).padStart(2, '0')}:${String(nextTimeLocal.getMinutes()).padStart(2, '0')}` : 'Nenhum';
-
-                    if (type === 'daily') {
-                        const now = new Date(); // Horário local (GMT-3)
-                        const today = new Date(now);
-                        today.setHours(0, 0, 0, 0); // Início do dia atual
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(today.getDate() + 1); // Início do dia seguinte
-                        if (nextTimeLocal && nextTimeLocal >= lastTakenLocal) {
-                            li.innerHTML = `${med.name} | Tomado: ${lastTakenStr} | Esperado: ${nextTimeStr}`;
-                            reportList.appendChild(li);
-                        }
-                    } else if (type === 'weekly' || type === 'monthly') {
-                        li.innerHTML = `${med.name} | Tomado: ${lastTakenStr} | Esperado: ${nextTimeStr}`;
-                        reportList.appendChild(li);
-                    }
-                });
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('goToUser').addEventListener('click', () => showScreen('userScreen'));
             document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
             document.getElementById('goToEdit').addEventListener('click', () => showScreen('editScreen'));
             document.getElementById('goToDelete').addEventListener('click', () => showScreen('deleteScreen'));
             document.getElementById('goToReport').addEventListener('click', () => showScreen('reportScreen'));
-
-            // Botões de relatório
-            document.getElementById('dailyReport').addEventListener('click', () => renderReport('daily'));
-            document.getElementById('weeklyReport').addEventListener('click', () => renderReport('weekly'));
-            document.getElementById('monthlyReport').addEventListener('click', () => renderReport('monthly'));
-            document.getElementById('backToMainFromReport').addEventListener('click', () => showScreen('mainScreen'));
         });
 
-        // Atualização automática da tela inicial a cada minuto
+        // Adiciona atualização automática da tela inicial a cada minuto
         setInterval(renderMainScreen, 60000);
     </script>
 </body>
