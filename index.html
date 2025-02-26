@@ -694,10 +694,10 @@
                     const periodMs = med.periodicity * 60 * 60 * 1000;
                     let expectedLocal;
                     if (index === 0) {
-                        // Se for o primeiro registro, subtrai a periodicidade do "Tomado" para o "Esperado" anterior
+                        // Para o primeiro registro, subtrai a periodicidade do "Tomado" para o "Esperado" anterior
                         expectedLocal = new Date(takenLocal.getTime() - periodMs);
                     } else {
-                        // Usa o "Tomado" anterior do histórico como base
+                        // Usa o "Tomado" anterior do histórico como base e soma a periodicidade
                         const previousTaken = new Date(allEntries.find(e => e.key === key && e.index === index - 1)?.taken || taken);
                         const previousLocal = new Date(previousTaken.getTime() - 3 * 60 * 60 * 1000);
                         expectedLocal = new Date(previousLocal.getTime() + periodMs);
