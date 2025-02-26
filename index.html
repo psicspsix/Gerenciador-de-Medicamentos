@@ -237,6 +237,7 @@
         const usersRef = ref(db, 'users');
         const lastUserRef = ref(db, 'lastUser');
         let currentUserId = null;
+        let currentReportType = 'daily'; // Variável para rastrear o relatório atual
 
         // Função para obter medsRef com base no usuário atual
         function getMedsRef() {
@@ -260,7 +261,10 @@
             if (screenId === 'userScreen') renderUserScreen();
             if (screenId === 'editScreen') renderEditScreen();
             if (screenId === 'deleteScreen') renderDeleteScreen();
-            if (screenId === 'reportScreen') renderReportScreen('daily');
+            if (screenId === 'reportScreen') {
+                if (currentReportType === 'daily') renderDailyReport('chrono');
+                else renderReportScreen(currentReportType);
+            }
             if (screenId === 'mainScreen') renderMainScreen();
         }
 
@@ -719,7 +723,7 @@
             });
         }
 
-        // Função corrigida para renderizar apenas o relatório diário
+        // Função para renderizar apenas o relatório diário
         function renderDailyReport(order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -808,11 +812,26 @@
             document.getElementById('backFromEdit').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromDelete').addEventListener('click', () => showScreen('mainScreen'));
             document.getElementById('backFromReport').addEventListener('click', () => showScreen('mainScreen'));
-            document.getElementById('dailyReport').addEventListener('click', () => renderDailyReport('chrono')); // Usa a nova função
-            document.getElementById('weeklyReport').addEventListener('click', () => renderReportScreen('weekly'));
-            document.getElementById('monthlyReport').addEventListener('click', () => renderReportScreen('monthly'));
-            document.getElementById('chronoOrder').addEventListener('click', () => renderDailyReport('chrono')); // Usa a nova função
-            document.getElementById('typeOrder').addEventListener('click', () => renderDailyReport('type')); // Usa a nova função
+            document.getElementById('dailyReport').addEventListener('click', () => {
+                currentReportType = 'daily';
+                renderDailyReport('chrono');
+            });
+            document.getElementById('weeklyReport').addEventListener('click', () => {
+                currentReportType = 'weekly';
+                renderReportScreen('weekly');
+            });
+            document.getElementById('monthlyReport').addEventListener('click', () => {
+                currentReportType = 'monthly';
+                renderReportScreen('monthly');
+            });
+            document.getElementById('chronoOrder').addEventListener('click', () => {
+                if (currentReportType === 'daily') renderDailyReport('chrono');
+                else renderReportScreen(currentReportType, 'chrono');
+            });
+            document.getElementById('typeOrder').addEventListener('click', () => {
+                if (currentReportType === 'daily') renderDailyReport('type');
+                else renderReportScreen(currentReportType, 'type');
+            });
         });
     </script>
 </body>
