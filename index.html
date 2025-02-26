@@ -619,9 +619,10 @@
                         const med = snapshot.val();
                         if (med.history && med.history[index]) {
                             const updatedHistory = [...med.history];
-                            updatedHistory[sortedHistory.indexOf(taken)] = newTaken;
+                            updatedHistory[index] = newTaken; // Atualiza diretamente no índice correto
                             update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
-                                renderReportScreen('daily'); // Atualiza o relatório
+                                if (currentReportType === 'daily') renderDailyReport('chrono');
+                                else renderReportScreen(currentReportType);
                             });
                         }
                     }, { onlyOnce: true });
@@ -631,15 +632,21 @@
             }
         }
 
-        // Função para excluir um registro do histórico
-        function deleteHistory(key, index, sortedHistory) {
+        // Função corrigida para excluir um registro do histórico
+        function deleteHistory(key, index) {
             onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                 const med = snapshot.val();
                 if (med.history && med.history[index]) {
                     const updatedHistory = [...med.history];
-                    updatedHistory.splice(sortedHistory.indexOf(taken), 1);
+                    updatedHistory.splice(index, 1); // Remove o item no índice fornecido
                     update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
-                        renderReportScreen('daily'); // Atualiza o relatório
+                        // Atualiza o relatório atual com base em currentReportType
+                        if (currentReportType === 'daily') renderDailyReport('chrono');
+                        else renderReportScreen(currentReportType);
+                        document.getElementById('reportSuccess').textContent = "Registro excluído com sucesso!";
+                        setTimeout(() => document.getElementById('reportSuccess').textContent = '', 2000);
+                    }).catch((error) => {
+                        document.getElementById('reportError').textContent = "Erro ao excluir: " + error.message;
                     });
                 }
             }, { onlyOnce: true });
@@ -714,7 +721,7 @@
                     `;
                     reportList.appendChild(li);
                     document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken)));
-                    document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index, allEntries.map(e => e.taken)));
+                    document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index));
                 });
 
                 if (!reportList.children.length) {
@@ -789,7 +796,7 @@
                     `;
                     reportList.appendChild(li);
                     document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken)));
-                    document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index, allEntries.map(e => e.taken)));
+                    document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index));
                 });
 
                 if (!reportList.children.length) {
