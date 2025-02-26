@@ -661,14 +661,14 @@
                             const takenLocalDate = new Date(takenLocal);
                             takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
                             let shouldInclude = false;
-                            if (type === 'daily') {
-                                shouldInclude = takenLocalDate.getTime() === today.getTime(); // Apenas o dia atual
-                            } else if (type === 'weekly') {
+                            if (type === 'weekly') {
                                 const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
                                 shouldInclude = takenLocal >= weekAgo;
                             } else if (type === 'monthly') {
                                 const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
                                 shouldInclude = takenLocal >= monthAgo;
+                            } else if (type === 'daily') {
+                                shouldInclude = takenLocalDate.getTime() === today.getTime(); // Apenas o dia atual
                             }
                             if (shouldInclude) {
                                 allEntries.push({ key, med, taken, index });
