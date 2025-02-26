@@ -690,14 +690,14 @@
 
                 allEntries.forEach(({ key, med, taken, index }) => {
                     const li = document.createElement('li');
-                    const takenLocal = new Date(new Date(taken).getTime() - 3 * 60 * 60 * 1000);
+                    const takenLocal = new Date(taken.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
                     const periodMs = med.periodicity * 60 * 60 * 1000;
                     let expectedLocal;
                     if (index === 0) {
-                        // Para o primeiro registro, subtrai a periodicidade do "Tomado" para o "Esperado" anterior
+                        // Para o primeiro registro, subtrai a periodicidade do "Tomado" atual
                         expectedLocal = new Date(takenLocal.getTime() - periodMs);
                     } else {
-                        // Usa o "Tomado" anterior do histórico como base e soma a periodicidade
+                        // Para registros subsequentes, usa o "Tomado" anterior e soma a periodicidade
                         const previousTaken = new Date(allEntries.find(e => e.key === key && e.index === index - 1)?.taken || taken);
                         const previousLocal = new Date(previousTaken.getTime() - 3 * 60 * 60 * 1000);
                         expectedLocal = new Date(previousLocal.getTime() + periodMs);
