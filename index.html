@@ -615,9 +615,8 @@
         }
 
         // Função para editar um registro no histórico (corrigida)
-        function editHistory(key, index, sortedHistory) {
-            // Pega o valor atual do "Tomado" diretamente do item clicado
-            const currentTaken = sortedHistory[index]; // Valor "Tomado" específico do item
+        function editHistory(key, index, sortedHistory, currentTaken) {
+            // Usa o currentTaken passado como parâmetro
             const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
             const day = String(takenLocal.getDate()).padStart(2, '0');
             const month = String(takenLocal.getMonth() + 1).padStart(2, '0');
@@ -751,7 +750,8 @@
                         <button id="delHist-${key}-${index}">Excluir</button>
                     `;
                     reportList.appendChild(li);
-                    document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken)));
+                    // Passa o 'taken' específico do item como parâmetro adicional
+                    document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken), taken));
                     document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index));
                 });
 
@@ -826,7 +826,8 @@
                         <button id="delHist-${key}-${index}">Excluir</button>
                     `;
                     reportList.appendChild(li);
-                    document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken)));
+                    // Passa o 'taken' específico do item como parâmetro adicional
+                    document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken), taken));
                     document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index));
                 });
 
