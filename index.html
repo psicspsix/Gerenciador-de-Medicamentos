@@ -614,17 +614,33 @@
             renderDeleteScreen(); // Atualiza a tela para remover o item
         }
 
-        // Função para editar um registro no histórico
+        // Função para editar um registro no histórico (atualizada)
         function editHistory(key, index, sortedHistory) {
-            const newTime = prompt("Digite o novo horário (hhmm):", "");
-            if (newTime && /^\d{4}$/.test(newTime)) {
-                const hours = parseInt(newTime.slice(0, 2));
-                const minutes = parseInt(newTime.slice(2, 4));
-                if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-                    const localDate = new Date();
-                    localDate.setHours(hours, minutes, 0, 0);
-                    const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000);
+            // Pega o valor atual do "Tomado" para preencher o prompt
+            const currentTaken = sortedHistory[index];
+            const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+            const day = String(takenLocal.getDate()).padStart(2, '0');
+            const month = String(takenLocal.getMonth() + 1).padStart(2, '0');
+            const year = takenLocal.getFullYear();
+            const hours = String(takenLocal.getHours()).padStart(2, '0');
+            const minutes = String(takenLocal.getMinutes()).padStart(2, '0');
+            const currentValue = `${day}${month}${year}${hours}${minutes}`; // Formato ddmmyyyyhhmm
+
+            const newTime = prompt("Digite a nova data e horário (ddmmyyyyhhmm):", currentValue);
+            if (newTime && /^\d{12}$/.test(newTime)) {
+                const day = parseInt(newTime.slice(0, 2));
+                const month = parseInt(newTime.slice(2, 4)) - 1; // Mês é 0-based em JS
+                const year = parseInt(newTime.slice(4, 8));
+                const hours = parseInt(newTime.slice(8, 10));
+                const minutes = parseInt(newTime.slice(10, 12));
+
+                if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && 
+                    year >= 2000 && year <= 9999 && // Limite razoável para ano
+                    hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                    const localDate = new Date(year, month, day, hours, minutes, 0, 0);
+                    const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
                     const newTaken = utcDate.toISOString();
+
                     onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                         const med = snapshot.val();
                         if (med.history && med.history[index]) {
@@ -637,8 +653,10 @@
                         }
                     }, { onlyOnce: true });
                 } else {
-                    document.getElementById('reportError').textContent = "Horário inválido!";
+                    document.getElementById('reportError').textContent = "Data ou horário inválido! Use ddmmyyyyhhmm.";
                 }
+            } else {
+                document.getElementById('reportError').textContent = "Digite ddmmyyyyhhmm (ex.: 260220250122)!";
             }
         }
 
@@ -800,7 +818,7 @@
                     const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
                     li.innerHTML = `
                         ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                        | Esperado: ${index === 0 || !expectedLocal ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        | Esperado: ${index === 0 ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                         <button id="editHist-${key}-${index}">Editar</button>
                         <button id="delHist-${key}-${index}">Excluir</button>
                     `;
