@@ -614,10 +614,10 @@
             renderDeleteScreen(); // Atualiza a tela para remover o item
         }
 
-        // Função para editar um registro no histórico (atualizada)
+        // Função para editar um registro no histórico (corrigida)
         function editHistory(key, index, sortedHistory) {
-            // Pega o valor atual do "Tomado" para preencher o prompt
-            const currentTaken = sortedHistory[index];
+            // Pega o valor atual do "Tomado" diretamente do item clicado
+            const currentTaken = sortedHistory[index]; // Valor "Tomado" específico do item
             const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
             const day = String(takenLocal.getDate()).padStart(2, '0');
             const month = String(takenLocal.getMonth() + 1).padStart(2, '0');
@@ -643,13 +643,16 @@
 
                     onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                         const med = snapshot.val();
-                        if (med.history && med.history[index]) {
+                        if (med.history) {
                             const updatedHistory = [...med.history];
-                            updatedHistory[index] = newTaken; // Atualiza diretamente no índice correto
-                            update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
-                                if (currentReportType === 'daily') renderDailyReport('chrono');
-                                else renderReportScreen(currentReportType);
-                            });
+                            const historyIndex = updatedHistory.indexOf(currentTaken); // Encontra o índice correto no history
+                            if (historyIndex !== -1) {
+                                updatedHistory[historyIndex] = newTaken; // Atualiza o valor correto
+                                update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
+                                    if (currentReportType === 'daily') renderDailyReport('chrono');
+                                    else renderReportScreen(currentReportType);
+                                });
+                            }
                         }
                     }, { onlyOnce: true });
                 } else {
