@@ -30,7 +30,7 @@
             margin: 20px 0;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start; /* Alinha ao topo */
         }
         .report-buttons-left {
             display: flex;
@@ -39,7 +39,8 @@
         }
         .report-buttons-right {
             display: flex;
-            justify-content: flex-end;
+            flex-direction: column; /* Empilha verticalmente */
+            align-items: flex-end;
         }
         button, input {
             font-size: 24px;
@@ -205,6 +206,7 @@
                 <button id="dailyReport">Diário</button>
                 <button id="weeklyReport">Semanal</button>
                 <button id="monthlyReport">Mensal</button>
+                <button id="yearlyReport">Anual</button>
             </div>
             <div class="report-buttons-right">
                 <button id="chronoOrder">Ordenamento Cronológico</button>
@@ -614,7 +616,7 @@
             renderDeleteScreen(); // Atualiza a tela para remover o item
         }
 
-        // Função para editar um registro no histórico (corrigida)
+        // Função para editar um registro no histórico
         function editHistory(key, index, sortedHistory, currentTaken) {
             // Usa o currentTaken passado como parâmetro
             const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
@@ -682,7 +684,7 @@
             }, { onlyOnce: true });
         }
 
-        // Renderiza a tela de relatórios com ordenamento (semanal e mensal intactos)
+        // Renderiza a tela de relatórios com ordenamento (semanal, mensal e anual intactos)
         function renderReportScreen(type, order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -710,6 +712,9 @@
                             } else if (type === 'monthly') {
                                 const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
                                 shouldInclude = takenLocal >= monthAgo;
+                            } else if (type === 'yearly') {
+                                const yearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
+                                shouldInclude = takenLocal >= yearAgo;
                             }
                             if (shouldInclude) {
                                 allEntries.push({ key, med, taken, index });
@@ -750,7 +755,6 @@
                         <button id="delHist-${key}-${index}">Excluir</button>
                     `;
                     reportList.appendChild(li);
-                    // Passa o 'taken' específico do item como parâmetro adicional
                     document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken), taken));
                     document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index));
                 });
@@ -818,7 +822,7 @@
                         }
                     }
                     const diff = index === 0 || !expectedLocal ? 0 : Math.abs(takenLocal - expectedLocal); // Primeiro registro ou sem esperado é "on-time"
-                    const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
+                    const onTime = index === 0 || diff <= 30 * 60 * 60 * 1000; // ±30min
                     li.innerHTML = `
                         ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         | Esperado: ${index === 0 ? 'N/A' : expectedLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -826,7 +830,6 @@
                         <button id="delHist-${key}-${index}">Excluir</button>
                     `;
                     reportList.appendChild(li);
-                    // Passa o 'taken' específico do item como parâmetro adicional
                     document.getElementById(`editHist-${key}-${index}`).addEventListener('click', () => editHistory(key, index, allEntries.map(e => e.taken), taken));
                     document.getElementById(`delHist-${key}-${index}`).addEventListener('click', () => deleteHistory(key, index));
                 });
@@ -862,6 +865,10 @@
             document.getElementById('monthlyReport').addEventListener('click', () => {
                 currentReportType = 'monthly';
                 renderReportScreen('monthly');
+            });
+            document.getElementById('yearlyReport').addEventListener('click', () => {
+                currentReportType = 'yearly';
+                renderReportScreen('yearly');
             });
             document.getElementById('chronoOrder').addEventListener('click', () => {
                 if (currentReportType === 'daily') renderDailyReport('chrono');
