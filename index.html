@@ -36,12 +36,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin: 0; /* Remove margem extra */
         }
         .report-buttons-left {
             display: flex;
             justify-content: flex-start;
             flex-grow: 1;
+            margin-top: 10px; /* Espaço mínimo entre título e botões */
         }
         .report-buttons-right {
             display: flex;
@@ -213,13 +214,11 @@
                 <button id="typeOrder">Ordenamento por Tipo de Item</button>
             </div>
         </div>
-        <div class="nav-buttons">
-            <div class="report-buttons-left">
-                <button id="dailyReport">Diário</button>
-                <button id="weeklyReport">Semanal</button>
-                <button id="monthlyReport">Mensal</button>
-                <button id="yearlyReport">Anual</button>
-            </div>
+        <div class="report-buttons-left">
+            <button id="dailyReport">Diário</button>
+            <button id="weeklyReport">Semanal</button>
+            <button id="monthlyReport">Mensal</button>
+            <button id="yearlyReport">Anual</button>
         </div>
         <ul id="reportList"></ul>
         <button id="backFromReport">Voltar</button>
