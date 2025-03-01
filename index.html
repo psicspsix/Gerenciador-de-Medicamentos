@@ -229,7 +229,7 @@
         <div class="report-container">
             <div class="report-line1">
                 <h1 class="report-title">RELATÓRIOS</h1>
-                <button id="chronoOrder" classyourself class="report-order-chrono">Ordenamento Cronológico</button>
+                <button id="chronoOrder" class="report-order-chrono">Ordenamento Cronológico</button>
             </div>
             <div class="report-line2">
                 <div class="report-period-buttons">
@@ -691,19 +691,23 @@
             }
         }
 
-        // Função para excluir um registro do histórico
+        // Função para excluir um registro do histórico (corrigida)
         function deleteHistory(key, index) {
             onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                 const med = snapshot.val();
                 if (med.history && med.history[index]) {
                     const updatedHistory = [...med.history];
                     updatedHistory.splice(index, 1); // Remove o item no índice fornecido
-                    update(ref(db, `users/${currentUserId}/medications/${key}`), { history: updatedHistory }).then(() => {
-                        // Atualiza o relatório atual com base em currentReportType
+                    const newLastTaken = updatedHistory.length > 0 ? updatedHistory[updatedHistory.length - 1] : null; // Último registro restante ou null
+                    update(ref(db, `users/${currentUserId}/medications/${key}`), { 
+                        history: updatedHistory,
+                        lastTaken: newLastTaken // Atualiza lastTaken com o último registro válido
+                    }).then(() => {
                         if (currentReportType === 'daily') renderDailyReport('chrono');
                         else renderReportScreen(currentReportType);
                         document.getElementById('reportSuccess').textContent = "Registro excluído com sucesso!";
                         setTimeout(() => document.getElementById('reportSuccess').textContent = '', 2000);
+                        renderMainScreen(); // Atualiza a tela inicial imediatamente
                     }).catch((error) => {
                         document.getElementById('reportError').textContent = "Erro ao excluir: " + error.message;
                     });
@@ -800,8 +804,8 @@
                 const reportList = document.getElementById('reportList');
                 reportList.innerHTML = '';
                 const now = new Date();
-                const today = new Date(now); // Usa horário local
-                today.setHours(0, 0, 0, 0); // Meia-noite do dia atual no horário local
+                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                today.setHours(0, 0, 0, 0); // Meia-noite do dia atual em GMT-3
 
                 let allEntries = [];
                 Object.entries(meds).forEach(([key, med]) => {
@@ -810,8 +814,8 @@
                             const takenDate = new Date(taken);
                             const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
                             const takenLocalDate = new Date(takenLocal);
-                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite no horário local
-                            if (takenLocalDate.getTime() === today.getTime()) { // Compara no horário local
+                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
+                            if (takenLocalDate.getTime() === today.getTime()) { // Apenas o dia atual
                                 allEntries.push({ key, med, taken, index });
                             }
                         });
@@ -842,7 +846,7 @@
                         const prevIndex = currentIndex - 1;
                         if (prevIndex >= 0) {
                             const previousTaken = new Date(fullHistory[prevIndex]);
-                            expectedLocal = new Date(previousTaken.getTime() + periodMs - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                            expectedLocal = new Date(previousTaken.getTime() + periodMs - 3 * 60 * 60 * 1000); // "Tomado" anterior + periodicidade
                         } else {
                             expectedLocal = null; // Sem "Tomado" anterior no histórico
                         }
