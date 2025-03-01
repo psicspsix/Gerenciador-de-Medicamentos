@@ -229,7 +229,7 @@
         <div class="report-container">
             <div class="report-line1">
                 <h1 class="report-title">RELATÓRIOS</h1>
-                <button id="chronoOrder" class="report-order-chrono">Ordenamento Cronológico</button>
+                <button id="chronoOrder" classyourself class="report-order-chrono">Ordenamento Cronológico</button>
             </div>
             <div class="report-line2">
                 <div class="report-period-buttons">
@@ -318,7 +318,7 @@
             const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
 
             if (diffDays < 0) {
-                className = 'late'; // Vermelho se o "Próximo" está no passado (ex.: 26/02 ou antes em 27/02)
+                className = 'late'; // Vermelho se o "Próximo" está no passado
             } else if (diffDays === 0) {
                 className = 'same-day'; // Amarelo se for hoje
             } else if (diffDays === 1) {
@@ -800,8 +800,8 @@
                 const reportList = document.getElementById('reportList');
                 reportList.innerHTML = '';
                 const now = new Date();
-                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
-                today.setHours(0, 0, 0, 0); // Meia-noite do dia atual em GMT-3
+                const today = new Date(now); // Usa horário local
+                today.setHours(0, 0, 0, 0); // Meia-noite do dia atual no horário local
 
                 let allEntries = [];
                 Object.entries(meds).forEach(([key, med]) => {
@@ -810,8 +810,8 @@
                             const takenDate = new Date(taken);
                             const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
                             const takenLocalDate = new Date(takenLocal);
-                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
-                            if (takenLocalDate.getTime() === today.getTime()) { // Apenas o dia atual
+                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite no horário local
+                            if (takenLocalDate.getTime() === today.getTime()) { // Compara no horário local
                                 allEntries.push({ key, med, taken, index });
                             }
                         });
@@ -842,7 +842,7 @@
                         const prevIndex = currentIndex - 1;
                         if (prevIndex >= 0) {
                             const previousTaken = new Date(fullHistory[prevIndex]);
-                            expectedLocal = new Date(previousTaken.getTime() + periodMs - 3 * 60 * 60 * 1000); // "Tomado" anterior + periodicidade
+                            expectedLocal = new Date(previousTaken.getTime() + periodMs - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
                         } else {
                             expectedLocal = null; // Sem "Tomado" anterior no histórico
                         }
