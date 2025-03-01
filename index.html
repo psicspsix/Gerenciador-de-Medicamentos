@@ -42,12 +42,12 @@
             text-align: left;
             margin: 0;
         }
-        .report-buttons-left {
+        .report-period-buttons {
             display: flex;
             justify-content: flex-start;
             margin: 5px 0 0 0; /* Espaço mínimo abaixo do título */
         }
-        .report-buttons-right {
+        .report-order-buttons {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
@@ -82,7 +82,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap; /* Permite quebra se necessário */
+            flex-wrap: wrap;
         }
         #userList li {
             font-size: 28px;
@@ -212,12 +212,12 @@
     <div id="reportScreen" class="screen">
         <div class="report-header">
             <h1 class="report-title">Relatórios</h1>
-            <div class="report-buttons-right">
+            <div class="report-order-buttons">
                 <button id="chronoOrder">Ordenamento Cronológico</button>
                 <button id="typeOrder">Ordenamento por Tipo de Item</button>
             </div>
         </div>
-        <div class="report-buttons-left">
+        <div class="report-period-buttons">
             <button id="dailyReport">Diário</button>
             <button id="weeklyReport">Semanal</button>
             <button id="monthlyReport">Mensal</button>
