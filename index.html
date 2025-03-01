@@ -36,13 +36,16 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin: 0; /* Remove margem extra */
+            margin: 0;
+        }
+        .report-title {
+            text-align: left;
+            margin: 0;
         }
         .report-buttons-left {
             display: flex;
             justify-content: flex-start;
-            flex-grow: 1;
-            margin-top: 10px; /* Espaço mínimo entre título e botões */
+            margin: 5px 0 0 0; /* Espaço mínimo abaixo do título */
         }
         .report-buttons-right {
             display: flex;
@@ -208,7 +211,7 @@
 
     <div id="reportScreen" class="screen">
         <div class="report-header">
-            <h1>Relatórios</h1>
+            <h1 class="report-title">Relatórios</h1>
             <div class="report-buttons-right">
                 <button id="chronoOrder">Ordenamento Cronológico</button>
                 <button id="typeOrder">Ordenamento por Tipo de Item</button>
