@@ -356,7 +356,7 @@
             }
         });
 
-        // Renderiza a tela inicial com base no usuário ativo
+        // Renderiza a tela inicial com base no usuário ativo, ordenada pelo "Próximo"
         function renderMainScreen() {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -364,9 +364,26 @@
                 const medList = document.getElementById('medList');
                 medList.innerHTML = meds ? '' : '<li>Nenhum medicamento, alimento ou líquido cadastrado!</li>';
 
-                Object.entries(meds).filter(([_, med]) => med.enabled !== false).forEach(([key, med]) => {
+                // Cria um array de medicamentos com nextTime para ordenação
+                const medArray = Object.entries(meds)
+                    .filter(([_, med]) => med.enabled !== false)
+                    .map(([key, med]) => ({
+                        key,
+                        med,
+                        nextTime: getNextTime(med.lastTaken, med.periodicity)
+                    }));
+
+                // Ordena pelo nextTime (crescente); null vai para o final
+                medArray.sort((a, b) => {
+                    if (a.nextTime === null && b.nextTime === null) return 0;
+                    if (a.nextTime === null) return 1; // null vai para o final
+                    if (b.nextTime === null) return -1;
+                    return new Date(a.nextTime) - new Date(b.nextTime);
+                });
+
+                // Renderiza os medicamentos ordenados
+                medArray.forEach(({ key, med, nextTime }) => {
                     const li = document.createElement('li');
-                    const nextTime = getNextTime(med.lastTaken, med.periodicity);
                     li.innerHTML = `
                         ${med.name} | Próximo: <span class="next-time">${formatDateTime(nextTime)}</span>
                         | Tomado às: <input type="text" id="taken-${key}" value="" placeholder="hhmm" maxlength="4">
@@ -644,68 +661,69 @@
             renderDeleteScreen(); // Atualiza a tela para remover o item
         }
 
-// Função para editar um registro no histórico
-function editHistory(key, index, sortedHistory, currentTaken) {
-    const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
-    const day = String(takenLocal.getDate()).padStart(2, '0');
-    const month = String(takenLocal.getMonth() + 1).padStart(2, '0');
-    const year = takenLocal.getFullYear();
-    const hours = String(takenLocal.getHours()).padStart(2, '0');
-    const minutes = String(takenLocal.getMinutes()).padStart(2, '0');
-    const currentValue = `${day}${month}${year}${hours}${minutes}`; // Formato ddmmyyyyhhmm
+        // Função para editar um registro no histórico
+        function editHistory(key, index, sortedHistory, currentTaken) {
+            const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+            const day = String(takenLocal.getDate()).padStart(2, '0');
+            const month = String(takenLocal.getMonth() + 1).padStart(2, '0');
+            const year = takenLocal.getFullYear();
+            const hours = String(takenLocal.getHours()).padStart(2, '0');
+            const minutes = String(takenLocal.getMinutes()).padStart(2, '0');
+            const currentValue = `${day}${month}${year}${hours}${minutes}`; // Formato ddmmyyyyhhmm
 
-    const newTime = prompt("Digite a nova data e horário (ddmmyyyyhhmm):", currentValue);
-    if (newTime && /^\d{12}$/.test(newTime)) {
-        const day = parseInt(newTime.slice(0, 2));
-        const month = parseInt(newTime.slice(2, 4)) - 1; // Mês é 0-based em JS
-        const year = parseInt(newTime.slice(4, 8));
-        const hours = parseInt(newTime.slice(8, 10));
-        const minutes = parseInt(newTime.slice(10, 12));
+            const newTime = prompt("Digite a nova data e horário (ddmmyyyyhhmm):", currentValue);
+            if (newTime && /^\d{12}$/.test(newTime)) {
+                const day = parseInt(newTime.slice(0, 2));
+                const month = parseInt(newTime.slice(2, 4)) - 1; // Mês é 0-based em JS
+                const year = parseInt(newTime.slice(4, 8));
+                const hours = parseInt(newTime.slice(8, 10));
+                const minutes = parseInt(newTime.slice(10, 12));
 
-        if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && 
-            year >= 2000 && year <= 9999 && // Limite razoável para ano
-            hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-            const localDate = new Date(year, month, day, hours, minutes, 0, 0);
-            const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
-            const newTaken = utcDate.toISOString();
+                if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && 
+                    year >= 2000 && year <= 9999 && // Limite razoável para ano
+                    hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                    const localDate = new Date(year, month, day, hours, minutes, 0, 0);
+                    const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
+                    const newTaken = utcDate.toISOString();
 
-            onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
-                const med = snapshot.val();
-                if (med.history) {
-                    const updatedHistory = [...med.history];
-                    const historyIndex = updatedHistory.indexOf(currentTaken); // Encontra o índice correto no history
-                    if (historyIndex !== -1) {
-                        updatedHistory[historyIndex] = newTaken; // Atualiza o valor correto
-                        // Verifica se o registro editado é o último no histórico
-                        const isLastEntry = historyIndex === updatedHistory.length - 1;
-                        const updates = { history: updatedHistory };
-                        if (isLastEntry) {
-                            updates.lastTaken = newTaken; // Atualiza lastTaken se for o último
-                        }
-                        update(ref(db, `users/${currentUserId}/medications/${key}`), updates).then(() => {
-                            if (currentReportType === 'daily') renderDailyReport('chrono');
-                            else renderReportScreen(currentReportType);
-                            if (isLastEntry) {
-                                renderMainScreen(); // Atualiza a tela inicial apenas se for o último
-                                document.getElementById('reportSuccess').textContent = "Registro editado e tela inicial atualizada!";
-                            } else {
-                                document.getElementById('reportSuccess').textContent = "Registro editado com sucesso!";
+                    onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
+                        const med = snapshot.val();
+                        if (med.history) {
+                            const updatedHistory = [...med.history];
+                            const historyIndex = updatedHistory.indexOf(currentTaken); // Encontra o índice correto no history
+                            if (historyIndex !== -1) {
+                                updatedHistory[historyIndex] = newTaken; // Atualiza o valor correto
+                                // Verifica se o registro editado é o último no histórico
+                                const isLastEntry = historyIndex === updatedHistory.length - 1;
+                                const updates = { history: updatedHistory };
+                                if (isLastEntry) {
+                                    updates.lastTaken = newTaken; // Atualiza lastTaken se for o último
+                                }
+                                update(ref(db, `users/${currentUserId}/medications/${key}`), updates).then(() => {
+                                    if (currentReportType === 'daily') renderDailyReport('chrono');
+                                    else renderReportScreen(currentReportType);
+                                    if (isLastEntry) {
+                                        renderMainScreen(); // Atualiza a tela inicial apenas se for o último
+                                        document.getElementById('reportSuccess').textContent = "Registro editado e tela inicial atualizada!";
+                                    } else {
+                                        document.getElementById('reportSuccess').textContent = "Registro editado com sucesso!";
+                                    }
+                                    setTimeout(() => document.getElementById('reportSuccess').textContent = '', 2000);
+                                }).catch((error) => {
+                                    document.getElementById('reportError').textContent = "Erro ao atualizar: " + error.message;
+                                });
                             }
-                            setTimeout(() => document.getElementById('reportSuccess').textContent = '', 2000);
-                        }).catch((error) => {
-                            document.getElementById('reportError').textContent = "Erro ao atualizar: " + error.message;
-                        });
-                    }
+                        }
+                    }, { onlyOnce: true });
+                } else {
+                    document.getElementById('reportError').textContent = "Data ou horário inválido! Use ddmmyyyyhhmm.";
                 }
-            }, { onlyOnce: true });
-        } else {
-            document.getElementById('reportError').textContent = "Data ou horário inválido! Use ddmmyyyyhhmm.";
+            } else {
+                document.getElementById('reportError').textContent = "Digite ddmmyyyyhhmm (ex.: 260220250122)!";
+            }
         }
-    } else {
-        document.getElementById('reportError').textContent = "Digite ddmmyyyyhhmm (ex.: 260220250122)!";
-    }
-}
-        // Função para excluir um registro do histórico (corrigida)
+
+        // Função para excluir um registro do histórico
         function deleteHistory(key, index) {
             onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                 const med = snapshot.val();
@@ -729,7 +747,7 @@ function editHistory(key, index, sortedHistory, currentTaken) {
             }, { onlyOnce: true });
         }
 
-        // Renderiza a tela de relatórios com ordenamento (semanal, mensal e anual intactos)
+        // Renderiza a tela de relatórios com ordenamento
         function renderReportScreen(type, order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
