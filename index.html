@@ -298,7 +298,7 @@
             if (screenId === 'mainScreen') renderMainScreen();
         }
 
-        // Função para formatar data/hora com lógica de cores (atualizada para tela inicial)
+        // Função para formatar data/hora com lógica de cores ajustada
         function formatDateTime(dateTime) {
             if (!dateTime) return '<span>Aguardando!</span>'; // Mensagem reduzida
             const date = new Date(dateTime);
@@ -310,7 +310,7 @@
             const minutes = String(dateLocal.getMinutes()).padStart(2, '0');
             let className = '';
 
-            const now = new Date(); // Horário local
+            const now = new Date(); // Horário local atual
             const today = new Date(now);
             today.setHours(0, 0, 0, 0); // Meia-noite do dia atual em GMT-3
             const due = new Date(dateLocal);
@@ -318,13 +318,21 @@
             const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
 
             if (diffDays < 0) {
-                className = 'late'; // Vermelho se o "Próximo" está no passado
+                className = 'late'; // Vermelho para passado
             } else if (diffDays === 0) {
-                className = 'same-day'; // Amarelo se for hoje
+                // Mesmo dia: verifica diferença de tempo
+                const nowTime = now.getTime();
+                const dueTime = dateLocal.getTime();
+                const diffMinutes = (nowTime - dueTime) / (60 * 1000); // Diferença em minutos
+                if (diffMinutes > 30) {
+                    className = 'late'; // Vermelho se atrasado mais de 30 minutos
+                } else {
+                    className = 'same-day'; // Amarelo se dentro do dia e até 30 minutos de atraso
+                }
             } else if (diffDays === 1) {
-                className = 'future-day'; // Azul se for amanhã
+                className = 'future-day'; // Azul para amanhã
             } else if (diffDays > 1) {
-                className = ''; // Sem cor se for daqui a mais de um dia
+                className = ''; // Sem cor para depois de amanhã ou mais
             }
 
             return `<span class="${className}">${hours}:${minutes}</span>`;
@@ -693,7 +701,6 @@
                             const historyIndex = updatedHistory.indexOf(currentTaken); // Encontra o índice correto no history
                             if (historyIndex !== -1) {
                                 updatedHistory[historyIndex] = newTaken; // Atualiza o valor correto
-                                // Verifica se o registro editado é o último no histórico
                                 const isLastEntry = historyIndex === updatedHistory.length - 1;
                                 const updates = { history: updatedHistory };
                                 if (isLastEntry) {
