@@ -356,7 +356,7 @@
             }
         });
 
-        // Renderiza a tela inicial com base no usuário ativo, ordenada pelo "Próximo"
+        // Renderiza a tela inicial com base no usuário ativo, ordenada pelo "Próximo" (data e hora)
         function renderMainScreen() {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -373,7 +373,7 @@
                         nextTime: getNextTime(med.lastTaken, med.periodicity)
                     }));
 
-                // Ordena pelo nextTime (crescente); null vai para o final
+                // Ordena pelo nextTime completo (data e hora, crescente); null vai para o final
                 medArray.sort((a, b) => {
                     if (a.nextTime === null && b.nextTime === null) return 0;
                     if (a.nextTime === null) return 1; // null vai para o final
