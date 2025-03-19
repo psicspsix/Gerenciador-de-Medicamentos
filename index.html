@@ -11,7 +11,7 @@
             background: #1a1a1a;
             color: #e0e0e0;
             text-align: center;
-            margin: 0; /* Remove margem padrão do body */
+            margin: 0;
         }
         .header {
             display: flex;
@@ -71,7 +71,7 @@
         button, input {
             font-size: 24px;
             padding: 15px;
-            margin: 0 10px 0 0; /* Margem mínima entre botões */
+            margin: 0 10px 0 0;
             background: #333;
             color: #e0e0e0;
             border: 1px solid #555;
@@ -117,24 +117,37 @@
             padding: 20px;
             border-radius: 10px;
             display: flex;
-            flex-direction: column; /* Alterado para coluna para suportar notas */
+            flex-direction: column;
             align-items: flex-start;
         }
-        .user-row, .report-row {
+        .user-row, .report-row, .edit-row, .delete-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            cursor: pointer; /* Indica que é clicável */
+            cursor: pointer;
+        }
+        .edit-row input[type="text"] {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .edit-row input[type="number"] {
+            width: 150px;
+            margin-right: 10px;
+        }
+        .delete-name {
+            cursor: pointer;
+            flex: 1;
+            text-align: left;
         }
         .next-time {
             font-size: 36px;
             font-weight: bold;
         }
-        .same-day { color: #ffff00; } /* Amarelo */
-        .future-day { color: #1e90ff; } /* Azul */
-        .on-time { color: #00ff00; } /* Verde */
-        .late { color: #ff5555; } /* Vermelho claro */
+        .same-day { color: #ffff00; }
+        .future-day { color: #1e90ff; }
+        .on-time { color: #00ff00; }
+        .late { color: #ff5555; }
         #mainError, #addError, #editError, #deleteError, #reportError, #userError,
         #mainSuccess, #addSuccess, #editSuccess, #deleteSuccess, #reportSuccess, #userSuccess {
             font-size: 24px;
@@ -151,7 +164,7 @@
             color: #aaa;
             margin-left: 10px;
         }
-        .user-note {
+        .user-note, .delete-note {
             display: none;
             font-size: 20px;
             margin-top: 10px;
@@ -159,12 +172,12 @@
             width: 100%;
             text-align: left;
             word-wrap: break-word;
-            min-height: 60px; /* Aproximadamente 3 linhas */
+            min-height: 60px;
             background: #333;
             border: 1px solid #555;
             padding: 10px;
-            resize: none; /* Impede redimensionamento */
-            box-sizing: border-box; /* Inclui padding e borda na largura */
+            resize: none;
+            box-sizing: border-box;
         }
         .status-text {
             font-size: 24px;
@@ -268,24 +281,21 @@
         const usersRef = ref(db, 'users');
         const lastUserRef = ref(db, 'lastUser');
         let currentUserId = null;
-        let currentReportType = 'daily'; // Variável para rastrear o relatório atual
+        let currentReportType = 'daily';
 
-        // Função para obter medsRef com base no usuário atual
         function getMedsRef() {
             return currentUserId ? ref(db, `users/${currentUserId}/medications`) : ref(db, 'medications');
         }
 
-        // Atualiza o horário atual
         function updateCurrentTime() {
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
             document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
         }
-        setInterval(updateCurrentTime, 60000); // Atualiza a cada minuto
-        updateCurrentTime(); // Chama imediatamente
+        setInterval(updateCurrentTime, 60000);
+        updateCurrentTime();
 
-        // Função para alternar telas
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -299,11 +309,10 @@
             if (screenId === 'mainScreen') renderMainScreen();
         }
 
-        // Função para formatar data/hora com lógica de cores ajustada
         function formatDateTime(dateTime) {
-            if (!dateTime) return '<span>Aguardando!</span>'; // Mensagem reduzida
+            if (!dateTime) return '<span>Aguardando!</span>';
             const date = new Date(dateTime);
-            const dateLocal = new Date(date.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
+            const dateLocal = new Date(date.getTime() - 3 * 60 * 60 * 1000);
             const day = String(dateLocal.getDate()).padStart(2, '0');
             const month = String(dateLocal.getMonth() + 1).padStart(2, '0');
             const year = dateLocal.getFullYear();
@@ -311,45 +320,40 @@
             const minutes = String(dateLocal.getMinutes()).padStart(2, '0');
             let className = '';
 
-            const now = new Date(); // Horário local atual
+            const now = new Date();
             const today = new Date(now);
-            today.setHours(0, 0, 0, 0); // Meia-noite do dia atual em GMT-3
+            today.setHours(0, 0, 0, 0);
             const due = new Date(dateLocal);
-            due.setHours(0, 0, 0, 0); // Meia-noite do próximo horário
+            due.setHours(0, 0, 0, 0);
             const diffDays = Math.floor((due - today) / (24 * 60 * 60 * 1000));
 
             if (diffDays < 0) {
-                className = 'late'; // Vermelho para passado
+                className = 'late';
             } else if (diffDays === 0) {
-                // Mesmo dia: verifica diferença de tempo
                 const nowTime = now.getTime();
                 const dueTime = dateLocal.getTime();
-                const diffMinutes = (nowTime - dueTime) / (60 * 1000); // Diferença em minutos
+                const diffMinutes = (nowTime - dueTime) / (60 * 1000);
                 if (diffMinutes > 30) {
-                    className = 'late'; // Vermelho se atrasado mais de 30 minutos
+                    className = 'late';
                 } else {
-                    className = 'same-day'; // Amarelo se dentro do dia e até 30 minutos de atraso
+                    className = 'same-day';
                 }
             } else if (diffDays === 1) {
-                className = 'future-day'; // Azul para amanhã
-            } else if (diffDays > 1) {
-                className = ''; // Sem cor para depois de amanhã ou mais
+                className = 'future-day';
             }
 
             return `<span class="${className}">${hours}:${minutes}</span>`;
         }
 
-        // Função para calcular o próximo horário
         function getNextTime(lastTaken, periodicity) {
-            if (!lastTaken) return null; // Retorna null se não houver último horário
+            if (!lastTaken) return null;
             const last = new Date(lastTaken);
-            const periodMs = periodicity * 60 * 60 * 1000; // Periodicidade em milissegundos
-            const nextTimeMs = last.getTime() + periodMs; // Sem correção extra
+            const periodMs = periodicity * 60 * 60 * 1000;
+            const nextTimeMs = last.getTime() + periodMs;
             const next = new Date(nextTimeMs);
             return next.toISOString();
         }
 
-        // Carrega o último usuário ativo
         onValue(lastUserRef, (snapshot) => {
             const lastUser = snapshot.val();
             if (lastUser && lastUser.id) {
@@ -361,11 +365,10 @@
                         document.getElementById('goToUser').textContent = firstName;
                     }
                 }, { onlyOnce: true });
-                renderMainScreen(); // Atualiza a tela inicial com os medicamentos do usuário
+                renderMainScreen();
             }
         });
 
-        // Renderiza a tela inicial com base no usuário ativo, ordenada pelo "Próximo" (data e hora)
         function renderMainScreen() {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -373,7 +376,6 @@
                 const medList = document.getElementById('medList');
                 medList.innerHTML = meds ? '' : '<li>Nenhum medicamento, alimento ou líquido cadastrado!</li>';
 
-                // Cria um array de medicamentos com nextTime para ordenação
                 const medArray = Object.entries(meds)
                     .filter(([_, med]) => med.enabled !== false)
                     .map(([key, med]) => ({
@@ -382,15 +384,13 @@
                         nextTime: getNextTime(med.lastTaken, med.periodicity)
                     }));
 
-                // Ordena pelo nextTime completo (data e hora, crescente); null vai para o final
                 medArray.sort((a, b) => {
                     if (a.nextTime === null && b.nextTime === null) return 0;
-                    if (a.nextTime === null) return 1; // null vai para o final
+                    if (a.nextTime === null) return 1;
                     if (b.nextTime === null) return -1;
                     return new Date(a.nextTime) - new Date(b.nextTime);
                 });
 
-                // Renderiza os medicamentos ordenados
                 medArray.forEach(({ key, med, nextTime }) => {
                     const li = document.createElement('li');
                     li.innerHTML = `
@@ -400,7 +400,6 @@
                     `;
                     medList.appendChild(li);
 
-                    // Evento para o campo de texto
                     li.querySelector(`#taken-${key}`).addEventListener('change', (e) => {
                         const value = e.target.value;
                         if (/^\d{4}$/.test(value)) {
@@ -408,14 +407,14 @@
                             const minutes = parseInt(value.slice(2, 4));
                             if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
                                 const localDate = new Date();
-                                localDate.setHours(hours, minutes, 0, 0); // Define horário local
-                                const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
+                                localDate.setHours(hours, minutes, 0, 0);
+                                const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000);
                                 const newLastTaken = utcDate.toISOString();
                                 update(ref(db, `users/${currentUserId}/medications/${key}`), { 
                                     lastTaken: newLastTaken,
                                     history: med.history ? [...med.history, { taken: newLastTaken, notes: "" }] : [{ taken: newLastTaken, notes: "" }]
                                 }).then(() => {
-                                    e.target.value = ''; // Limpa o campo
+                                    e.target.value = '';
                                 }).catch((error) => {
                                     document.getElementById('mainError').textContent = "Erro ao registrar: " + error.message;
                                 });
@@ -427,7 +426,6 @@
                         }
                     });
 
-                    // Evento para o botão "Hora Atual"
                     li.querySelector(`#currentTime-${key}`).addEventListener('click', () => {
                         const now = new Date();
                         const hours = String(now.getHours()).padStart(2, '0');
@@ -441,7 +439,7 @@
                             lastTaken: newLastTaken,
                             history: med.history ? [...med.history, { taken: newLastTaken, notes: "" }] : [{ taken: newLastTaken, notes: "" }]
                         }).then(() => {
-                            document.getElementById(`taken-${key}`).value = ''; // Limpa o campo
+                            document.getElementById(`taken-${key}`).value = '';
                         }).catch((error) => {
                             document.getElementById('mainError').textContent = "Erro ao registrar: " + error.message;
                         });
@@ -450,7 +448,6 @@
             });
         }
 
-        // Função para cadastrar usuário
         function addUser() {
             const nameInput = document.getElementById('userNameInput');
             const name = nameInput.value.trim();
@@ -477,7 +474,6 @@
             });
         }
 
-        // Renderiza a tela de usuários
         function renderUserScreen() {
             onValue(usersRef, (snapshot) => {
                 const users = snapshot.val() || {};
@@ -517,7 +513,6 @@
                     userNameSpan.addEventListener('click', toggleNote);
                     if (hasNoteSpan) hasNoteSpan.addEventListener('click', toggleNote);
 
-                    // Salva a nota ao perder o foco ou pressionar Enter
                     noteTextarea.addEventListener('blur', () => {
                         update(ref(db, `users/${key}`), { note: noteTextarea.value });
                     });
@@ -556,7 +551,6 @@
             });
         }
 
-        // Função para cadastrar medicamento
         function addMedication() {
             if (!currentUserId) {
                 document.getElementById('addError').textContent = "Selecione um usuário primeiro!";
@@ -578,7 +572,8 @@
                 periodicity,
                 lastTaken: null,
                 enabled: true,
-                history: []
+                history: [],
+                note: ""
             }).then(() => {
                 nameInput.value = '';
                 periodInput.value = '';
@@ -591,19 +586,23 @@
             });
         }
 
-        // Renderiza a tela de edição
         function renderEditScreen() {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
                 const editList = document.getElementById('editMedList');
                 editList.innerHTML = '';
-                Object.entries(meds).forEach(([key, med]) => {
+
+                const medArray = Object.entries(meds).sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+                medArray.forEach(([key, med]) => {
                     const li = document.createElement('li');
                     li.innerHTML = `
-                        <input type="text" id="editName-${key}" value="${med.name}">
-                        <input type="number" id="editPeriod-${key}" value="${med.periodicity}">
-                        <button id="saveEdit-${key}">Salvar</button>
+                        <div class="edit-row">
+                            <input type="text" id="editName-${key}" value="${med.name}">
+                            <input type="number" id="editPeriod-${key}" value="${med.periodicity}">
+                            <button id="saveEdit-${key}">Salvar</button>
+                        </div>
                     `;
                     editList.appendChild(li);
                     document.getElementById(`saveEdit-${key}`).addEventListener('click', () => saveEdit(key));
@@ -624,24 +623,57 @@
             showScreen('mainScreen');
         }
 
-        // Renderiza a tela de exclusão/mudar status
         function renderDeleteScreen() {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
                 const meds = snapshot.val() || {};
                 const deleteList = document.getElementById('deleteMedList');
                 deleteList.innerHTML = '';
-                Object.entries(meds).forEach(([key, med]) => {
-                    const li = document.createElement('li');
+
+                const medArray = Object.entries(meds).sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+                medArray.forEach(([key, med]) => {
                     const status = med.enabled !== false ? "Habilitado" : "Desabilitado";
+                    const li = document.createElement('li');
                     li.innerHTML = `
-                        ${med.name} | Periodicidade: ${med.periodicity}h
-                        <button id="enable-${key}">Habilitar</button>
-                        <button id="disable-${key}">Desabilitar</button>
-                        <button id="delete-${key}">Excluir</button>
-                        <span class="status-text">(${status})</span>
+                        <div class="delete-row">
+                            <span class="delete-name">${med.name} | Periodicidade: ${med.periodicity}h</span>
+                            <div>
+                                <button id="enable-${key}">Habilitar</button>
+                                <button id="disable-${key}">Desabilitar</button>
+                                <button id="delete-${key}">Excluir</button>
+                                <span class="status-text">(${status})</span>
+                                ${med.note ? '<span class="has-note">(Contém Nota)</span>' : ''}
+                            </div>
+                        </div>
+                        <textarea id="note-${key}" class="delete-note" placeholder="Digite uma nota aqui">${med.note || ''}</textarea>
                     `;
                     deleteList.appendChild(li);
+
+                    const deleteNameSpan = li.querySelector('.delete-name');
+                    const hasNoteSpan = li.querySelector('.has-note');
+                    const noteTextarea = document.getElementById(`note-${key}`);
+
+                    function toggleNote(e) {
+                        e.stopPropagation();
+                        noteTextarea.style.display = noteTextarea.style.display === 'block' ? 'none' : 'block';
+                        noteTextarea.focus();
+                    }
+
+                    deleteNameSpan.addEventListener('click', toggleNote);
+                    if (hasNoteSpan) hasNoteSpan.addEventListener('click', toggleNote);
+
+                    noteTextarea.addEventListener('blur', () => {
+                        update(ref(db, `users/${currentUserId}/medications/${key}`), { note: noteTextarea.value });
+                    });
+                    noteTextarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            update(ref(db, `users/${currentUserId}/medications/${key}`), { note: noteTextarea.value });
+                            noteTextarea.blur();
+                        }
+                    });
+
                     document.getElementById(`enable-${key}`).addEventListener('click', () => enableItem(key));
                     document.getElementById(`disable-${key}`).addEventListener('click', () => disableItem(key));
                     document.getElementById(`delete-${key}`).addEventListener('click', () => deleteItem(key));
@@ -660,59 +692,58 @@
             update(ref(db, `users/${currentUserId}/medications/${key}`), { enabled: false });
             document.getElementById('deleteSuccess').textContent = "Item desabilitado com sucesso!";
             setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
-            renderDeleteScreen(); // Atualiza a tela para refletir o status
+            renderDeleteScreen();
         }
 
         function deleteItem(key) {
             remove(ref(db, `users/${currentUserId}/medications/${key}`));
             document.getElementById('deleteSuccess').textContent = "Item excluído com sucesso!";
             setTimeout(() => document.getElementById('deleteSuccess').textContent = '', 2000);
-            renderDeleteScreen(); // Atualiza a tela para remover o item
+            renderDeleteScreen();
         }
 
-        // Função para editar um registro no histórico
         function editHistory(key, index, sortedHistory, currentTaken) {
-            const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+            const takenLocal = new Date(new Date(currentTaken).getTime() - 3 * 60 * 60 * 1000);
             const day = String(takenLocal.getDate()).padStart(2, '0');
             const month = String(takenLocal.getMonth() + 1).padStart(2, '0');
             const year = takenLocal.getFullYear();
             const hours = String(takenLocal.getHours()).padStart(2, '0');
             const minutes = String(takenLocal.getMinutes()).padStart(2, '0');
-            const currentValue = `${day}${month}${year}${hours}${minutes}`; // Formato ddmmyyyyhhmm
+            const currentValue = `${day}${month}${year}${hours}${minutes}`;
 
             const newTime = prompt("Digite a nova data e horário (ddmmyyyyhhmm):", currentValue);
             if (newTime && /^\d{12}$/.test(newTime)) {
                 const day = parseInt(newTime.slice(0, 2));
-                const month = parseInt(newTime.slice(2, 4)) - 1; // Mês é 0-based em JS
+                const month = parseInt(newTime.slice(2, 4)) - 1;
                 const year = parseInt(newTime.slice(4, 8));
                 const hours = parseInt(newTime.slice(8, 10));
                 const minutes = parseInt(newTime.slice(10, 12));
 
                 if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && 
-                    year >= 2000 && year <= 9999 && // Limite razoável para ano
+                    year >= 2000 && year <= 9999 && 
                     hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
                     const localDate = new Date(year, month, day, hours, minutes, 0, 0);
-                    const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000); // Converte para UTC
+                    const utcDate = new Date(localDate.getTime() + 3 * 60 * 60 * 1000);
                     const newTaken = utcDate.toISOString();
 
                     onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                         const med = snapshot.val();
                         if (med.history) {
                             const updatedHistory = [...med.history];
-                            const historyIndex = updatedHistory.findIndex(item => item.taken === currentTaken); // Encontra pelo valor exato
+                            const historyIndex = updatedHistory.findIndex(item => item.taken === currentTaken);
                             if (historyIndex !== -1) {
                                 const currentNotes = updatedHistory[historyIndex].notes || "";
-                                updatedHistory[historyIndex] = { taken: newTaken, notes: currentNotes }; // Preserva a nota
+                                updatedHistory[historyIndex] = { taken: newTaken, notes: currentNotes };
                                 const isLastEntry = historyIndex === updatedHistory.length - 1;
                                 const updates = { history: updatedHistory };
                                 if (isLastEntry) {
-                                    updates.lastTaken = newTaken; // Atualiza lastTaken se for o último
+                                    updates.lastTaken = newTaken;
                                 }
                                 update(ref(db, `users/${currentUserId}/medications/${key}`), updates).then(() => {
                                     if (currentReportType === 'daily') renderDailyReport('chrono');
                                     else renderReportScreen(currentReportType);
                                     if (isLastEntry) {
-                                        renderMainScreen(); // Atualiza a tela inicial apenas se for o último
+                                        renderMainScreen();
                                         document.getElementById('reportSuccess').textContent = "Registro editado e tela inicial atualizada!";
                                     } else {
                                         document.getElementById('reportSuccess').textContent = "Registro editado com sucesso!";
@@ -732,23 +763,22 @@
             }
         }
 
-        // Função para excluir um registro do histórico
         function deleteHistory(key, index) {
             onValue(ref(db, `users/${currentUserId}/medications/${key}`), (snapshot) => {
                 const med = snapshot.val();
                 if (med.history && med.history[index]) {
                     const updatedHistory = [...med.history];
-                    updatedHistory.splice(index, 1); // Remove o item no índice fornecido
-                    const newLastTaken = updatedHistory.length > 0 ? updatedHistory[updatedHistory.length - 1].taken : null; // Último registro restante ou null
+                    updatedHistory.splice(index, 1);
+                    const newLastTaken = updatedHistory.length > 0 ? updatedHistory[updatedHistory.length - 1].taken : null;
                     update(ref(db, `users/${currentUserId}/medications/${key}`), { 
                         history: updatedHistory,
-                        lastTaken: newLastTaken // Atualiza lastTaken com o último registro válido
+                        lastTaken: newLastTaken
                     }).then(() => {
                         if (currentReportType === 'daily') renderDailyReport('chrono');
                         else renderReportScreen(currentReportType);
                         document.getElementById('reportSuccess').textContent = "Registro excluído com sucesso!";
                         setTimeout(() => document.getElementById('reportSuccess').textContent = '', 2000);
-                        renderMainScreen(); // Atualiza a tela inicial imediatamente
+                        renderMainScreen();
                     }).catch((error) => {
                         document.getElementById('reportError').textContent = "Erro ao excluir: " + error.message;
                     });
@@ -756,7 +786,6 @@
             }, { onlyOnce: true });
         }
 
-        // Renderiza a tela de relatórios com ordenamento e notas
         function renderReportScreen(type, order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -764,7 +793,7 @@
                 const reportList = document.getElementById('reportList');
                 reportList.innerHTML = '';
                 const now = new Date();
-                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000);
                 today.setHours(0, 0, 0, 0);
 
                 let allEntries = [];
@@ -772,9 +801,9 @@
                     if (med.history && med.history.length > 0) {
                         med.history.forEach((entry, index) => {
                             const takenDate = new Date(entry.taken);
-                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta UTC para GMT-3
+                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000);
                             const takenLocalDate = new Date(takenLocal);
-                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
+                            takenLocalDate.setHours(0, 0, 0, 0);
                             let shouldInclude = false;
                             if (type === 'daily') {
                                 shouldInclude = takenLocalDate.getTime() === today.getTime();
@@ -795,7 +824,6 @@
                     }
                 });
 
-                // Ordenamento
                 if (order === 'chrono') {
                     allEntries.sort((a, b) => new Date(a.taken) - new Date(b.taken));
                 } else if (order === 'type') {
@@ -812,15 +840,15 @@
                     const periodMs = med.periodicity * 60 * 60 * 1000;
                     let expectedLocal;
                     if (index === 0) {
-                        expectedLocal = null; // Primeiro registro não tem esperado anterior
+                        expectedLocal = null;
                     } else {
                         const previousEntry = med.history[index - 1];
                         const previousTaken = new Date(previousEntry.taken);
                         const expected = new Date(previousTaken.getTime() + periodMs);
-                        expectedLocal = new Date(expected.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                        expectedLocal = new Date(expected.getTime() - 3 * 60 * 60 * 1000);
                     }
-                    const diff = index === 0 ? 0 : Math.abs(takenLocal - expectedLocal); // Primeiro registro é sempre "on-time"
-                    const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
+                    const diff = index === 0 ? 0 : Math.abs(takenLocal - expectedLocal);
+                    const onTime = index === 0 || diff <= 30 * 60 * 1000;
                     li.innerHTML = `
                         <div class="report-row">
                             ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
@@ -840,7 +868,7 @@
                     const noteTextarea = document.getElementById(`note-${key}-${index}`);
 
                     function toggleNote(e) {
-                        e.stopPropagation(); // Evita propagação para eventos de botões
+                        e.stopPropagation();
                         noteTextarea.style.display = noteTextarea.style.display === 'block' ? 'none' : 'block';
                         noteTextarea.focus();
                     }
@@ -864,11 +892,11 @@
                     });
 
                     document.getElementById(`editHist-${key}-${index}`).addEventListener('click', (e) => {
-                        e.stopPropagation(); // Evita abrir a nota ao clicar em Editar
+                        e.stopPropagation();
                         editHistory(key, index, allEntries.map(e => e.taken), taken);
                     });
                     document.getElementById(`delHist-${key}-${index}`).addEventListener('click', (e) => {
-                        e.stopPropagation(); // Evita abrir a nota ao clicar em Excluir
+                        e.stopPropagation();
                         deleteHistory(key, index);
                     });
                 });
@@ -879,7 +907,6 @@
             });
         }
 
-        // Função para renderizar apenas o relatório diário com notas
         function renderDailyReport(order = 'chrono') {
             const medsRef = getMedsRef();
             onValue(medsRef, (snapshot) => {
@@ -887,25 +914,24 @@
                 const reportList = document.getElementById('reportList');
                 reportList.innerHTML = '';
                 const now = new Date();
-                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
-                today.setHours(0, 0, 0, 0); // Meia-noite do dia atual em GMT-3
+                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+                today.setHours(0, 0, 0, 0);
 
                 let allEntries = [];
                 Object.entries(meds).forEach(([key, med]) => {
                     if (med.history && med.history.length > 0) {
                         med.history.forEach((entry, index) => {
                             const takenDate = new Date(entry.taken);
-                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajusta para GMT-3
+                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000);
                             const takenLocalDate = new Date(takenLocal);
-                            takenLocalDate.setHours(0, 0, 0, 0); // Normaliza para meia-noite
-                            if (takenLocalDate.getTime() === today.getTime()) { // Apenas o dia atual
+                            takenLocalDate.setHours(0, 0, 0, 0);
+                            if (takenLocalDate.getTime() === today.getTime()) {
                                 allEntries.push({ key, med, taken: entry.taken, notes: entry.notes || "", index });
                             }
                         });
                     }
                 });
 
-                // Ordenamento
                 if (order === 'chrono') {
                     allEntries.sort((a, b) => new Date(a.taken) - new Date(b.taken));
                 } else if (order === 'type') {
@@ -922,14 +948,14 @@
                     const periodMs = med.periodicity * 60 * 60 * 1000;
                     let expectedLocal;
                     if (index === 0) {
-                        expectedLocal = null; // Primeiro registro no histórico não tem esperado anterior
+                        expectedLocal = null;
                     } else {
                         const previousEntry = med.history[index - 1];
                         const previousTaken = new Date(previousEntry.taken);
-                        expectedLocal = new Date(previousTaken.getTime() + periodMs - 3 * 60 * 60 * 1000); // "Tomado" anterior + periodicidade
+                        expectedLocal = new Date(previousTaken.getTime() + periodMs - 3 * 60 * 60 * 1000);
                     }
                     const diff = index === 0 || !expectedLocal ? 0 : Math.abs(takenLocal - expectedLocal);
-                    const onTime = index === 0 || diff <= 30 * 60 * 1000; // ±30min
+                    const onTime = index === 0 || diff <= 30 * 60 * 1000;
                     li.innerHTML = `
                         <div class="report-row">
                             ${med.name} | Tomado: <span class="${onTime ? 'on-time' : 'late'}">${takenLocal.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
@@ -949,7 +975,7 @@
                     const noteTextarea = document.getElementById(`note-${key}-${index}`);
 
                     function toggleNote(e) {
-                        e.stopPropagation(); // Evita propagação para eventos de botões
+                        e.stopPropagation();
                         noteTextarea.style.display = noteTextarea.style.display === 'block' ? 'none' : 'block';
                         noteTextarea.focus();
                     }
@@ -973,11 +999,11 @@
                     });
 
                     document.getElementById(`editHist-${key}-${index}`).addEventListener('click', (e) => {
-                        e.stopPropagation(); // Evita abrir a nota ao clicar em Editar
+                        e.stopPropagation();
                         editHistory(key, index, allEntries.map(e => e.taken), taken);
                     });
                     document.getElementById(`delHist-${key}-${index}`).addEventListener('click', (e) => {
-                        e.stopPropagation(); // Evita abrir a nota ao clicar em Excluir
+                        e.stopPropagation();
                         deleteHistory(key, index);
                     });
                 });
@@ -988,7 +1014,6 @@
             });
         }
 
-        // Vincula eventos aos botões de navegação após o DOM carregar
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('goToUser').addEventListener('click', () => showScreen('userScreen'));
             document.getElementById('goToAdd').addEventListener('click', () => showScreen('addScreen'));
