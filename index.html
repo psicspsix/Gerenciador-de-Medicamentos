@@ -914,17 +914,17 @@
                 const reportList = document.getElementById('reportList');
                 reportList.innerHTML = '';
                 const now = new Date();
-                const today = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-                today.setHours(0, 0, 0, 0);
+                const today = new Date(now); // Usar horário local diretamente
+                today.setHours(0, 0, 0, 0);  // Zerar horas para comparar apenas o dia
 
                 let allEntries = [];
                 Object.entries(meds).forEach(([key, med]) => {
                     if (med.history && med.history.length > 0) {
                         med.history.forEach((entry, index) => {
-                            const takenDate = new Date(entry.taken);
-                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000);
+                            const takenDate = new Date(entry.taken); // Horário UTC do banco
+                            const takenLocal = new Date(takenDate.getTime() - 3 * 60 * 60 * 1000); // Ajuste para horário local (-3h)
                             const takenLocalDate = new Date(takenLocal);
-                            takenLocalDate.setHours(0, 0, 0, 0);
+                            takenLocalDate.setHours(0, 0, 0, 0); // Zerar horas para comparar apenas o dia
                             if (takenLocalDate.getTime() === today.getTime()) {
                                 allEntries.push({ key, med, taken: entry.taken, notes: entry.notes || "", index });
                             }
