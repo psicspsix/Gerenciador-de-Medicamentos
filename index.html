@@ -60,11 +60,7 @@
             margin: 0;
             padding: 0;
         }
-        .report-order-chrono {
-            margin: 0 10px 0 0;
-            padding: 15px;
-        }
-        .report-order-type {
+        .report-order-chrono, .report-order-type, .report-txt {
             margin: 0 10px 0 0;
             padding: 15px;
         }
@@ -164,7 +160,7 @@
             color: #aaa;
             margin-left: 10px;
         }
-        .user-note, .delete-note {
+        .user-note, .delete-note, .report-note {
             display: none;
             font-size: 20px;
             margin-top: 10px;
@@ -252,9 +248,11 @@
                     <button id="monthlyReport">Mensal</button>
                     <button id="yearlyReport">Anual</button>
                 </div>
+                <button id="txtReport" class="report-txt">TXT</button>
                 <button id="typeOrder" class="report-order-type">Ordenamento por Tipo de Item</button>
             </div>
         </div>
+        <textarea id="reportNote" class="report-note" placeholder="Registros em texto aparecerão aqui ao clicar em TXT"></textarea>
         <ul id="reportList"></ul>
         <button id="backFromReport">Voltar</button>
         <div id="reportError"></div>
@@ -1036,6 +1034,29 @@
             });
         }
 
+        function generateTxtReport() {
+            const reportList = document.getElementById('reportList');
+            const reportNote = document.getElementById('reportNote');
+            let textContent = "";
+
+            const medItems = reportList.querySelectorAll('li');
+            if (medItems.length === 0) {
+                textContent = "Nenhum registro encontrado!";
+            } else {
+                textContent = `Relatório ${currentReportType === 'daily' ? 'Diário' : currentReportType === 'weekly' ? 'Semanal' : currentReportType === 'monthly' ? 'Mensal' : 'Anual'}:\n`;
+                medItems.forEach((item) => {
+                    const row = item.querySelector('.report-row');
+                    const nameAndTime = row.childNodes[0].textContent.trim() + " " + row.querySelector('span').textContent;
+                    const expected = row.childNodes[2].textContent.trim();
+                    const notes = item.querySelector('.user-note').value ? `Notas: ${item.querySelector('.user-note').value}` : "";
+                    textContent += `${nameAndTime} | ${expected}${notes ? ' | ' + notes : ''}\n`;
+                });
+            }
+
+            reportNote.value = textContent;
+            reportNote.style.display = 'block';
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const userNameInput = document.getElementById('userNameInput');
             const addNameInput = document.getElementById('addNameInput');
@@ -1077,6 +1098,7 @@
                 if (currentReportType === 'daily') renderDailyReport('type');
                 else renderReportScreen(currentReportType, 'type');
             });
+            document.getElementById('txtReport').addEventListener('click', generateTxtReport);
 
             userNameInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
